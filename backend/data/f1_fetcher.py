@@ -79,23 +79,20 @@ def get_upcoming_race():
     return None
 
 def get_constructor_standings(year: int):
-    """Fetch constructor championship standings"""
-    try:
-        url = f"https://ergast.com/api/f1/{year}/constructorStandings.json"
-        response = requests.get(url)
-        data = response.json()
-
-        standings = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
-
-        return [
-            {
-                "position": int(s["position"]),
-                "team": s["Constructor"]["name"],
-                "points": float(s["points"]),
-                "wins": int(s["wins"])
-            }
-            for s in standings
-        ]
-    except Exception as e:
-        print(f"Error fetching constructor standings: {e}")
-        return []
+    """Fetch constructor championship standings via Jolpica API"""
+    url = f"https://api.jolpi.ca/ergast/f1/{year}/constructorStandings.json"
+    response = requests.get(url)
+    data = response.json()
+    
+    standings = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
+    
+    return [
+        {
+            "position": int(s["position"]),
+            "team": s["Constructor"]["name"],
+            "points": float(s["points"]),
+            "wins": int(s["wins"])
+        }
+        for s in standings
+        if s.get("position")
+    ]

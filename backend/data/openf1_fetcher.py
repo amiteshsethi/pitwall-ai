@@ -97,7 +97,6 @@ def get_live_lap_times(session_key: int) -> dict:
 
     return driver_best_laps
 
-
 def get_driver_info(session_key: int) -> dict:
     """
     Get driver details for a session.
@@ -124,7 +123,6 @@ def get_driver_info(session_key: int) -> dict:
 
     return result
 
-
 def get_tyre_data(session_key: int) -> dict:
     """
     Get latest tyre compound per driver.
@@ -145,7 +143,6 @@ def get_tyre_data(session_key: int) -> dict:
             driver_tyres[driver] = compound
 
     return driver_tyres
-
 
 def get_session_pace_rankings(session_key: int) -> list:
     """
@@ -186,7 +183,6 @@ def get_session_pace_rankings(session_key: int) -> list:
 
     return rankings
 
-
 def get_session_status() -> dict:
     """
     Returns current availability status of 2026 data.
@@ -206,3 +202,24 @@ def get_session_status() -> dict:
         "message": f"Live data available: {session.get('session_name')} at {session.get('location')}",
         "session": session
     }
+
+
+def get_session_by_name(session_name: str, location: str) -> Optional[dict]:
+    """
+    Find a specific session by name and location.
+    Example: get_session_by_name("Sprint Qualifying", "Shanghai")
+    """
+    data = safe_get(f"{BASE_URL}/sessions?year={CURRENT_YEAR}")
+
+    if data is None:
+        print("[INFO] No 2026 session data available yet.")
+        return None
+
+    for session in data:
+        name_match = session_name.lower() in session.get("session_name", "").lower()
+        location_match = location.lower() in session.get("location", "").lower()
+        if name_match and location_match:
+            return session
+
+    print(f"[INFO] Session '{session_name}' at '{location}' not found yet.")
+    return None
