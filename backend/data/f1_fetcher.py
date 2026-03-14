@@ -117,3 +117,38 @@ def get_circuit_lap_record(circuit_id: str) -> dict:
     except Exception as e:
         print(f"[ERROR] Could not fetch lap record for {circuit_id}: {e}")
         return {}
+
+def get_last_race_result(year: int) -> dict:
+    """
+    Fetch the most recent race result from Jolpica.
+    Returns top 10 finishers.
+    """
+    try:
+        url = f"https://api.jolpi.ca/ergast/f1/{year}/results.json?limit=1&offset=0"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+
+        races = data["MRData"]["RaceTable"]["Races"]
+        if not races:
+            return {}
+
+        race = races[-1]
+        results = race["Results"]
+
+        return {
+            "race_name": race["raceName"],
+            "round": int(race["round"]),
+            "date": race["date"],
+            "top10": [
+                {
+                    "position": int(r["position"]),
+                    "driver_code": r["Driver"]["code"],
+                    "driver_name": f"{r['Driver']['givenName']} {r['Driver']['familyName']}",
+                    "team": r["Constructors"][0]["name"],
+                }
+                for r in results[:10]
+            ]
+        }
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch last race result: {e}")
+        return {}
