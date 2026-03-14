@@ -41,3 +41,23 @@ export const getConstructorStandings = async (
   })
   return data.standings
 }
+
+export const getCircuitLapRecord = async (circuitId: string) => {
+  const { data } = await api.get(`/circuit/${circuitId}/record`)
+  return data
+}
+
+export const getSessionStatus = async (location: string): Promise<{ session_count: number }> => {
+  const { data } = await api.get('/predictions', {
+    params: { 
+      track: 'placeholder',
+      location 
+    }
+  })
+  return { session_count: data.session_count }
+}
+
+export const getPredictionComparison = async () => {
+  const { data } = await api.get('/comparison')
+  return data
+}

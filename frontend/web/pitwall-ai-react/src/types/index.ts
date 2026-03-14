@@ -22,6 +22,8 @@ export interface UpcomingRace {
   country: string
   date: string
   round: string
+  time: string
+  location: string
 }
 
 export interface DriverStanding {
@@ -38,4 +40,57 @@ export interface ConstructorStanding {
   team: string
   points: number
   wins: number
+}
+
+export interface TimeLeft {
+  days: number
+  hours: number
+  minutes: number
+  seconds: number
+}
+
+export interface CircuitInfo {
+  name: string
+  location: string
+  country: string
+  lapLengthKm: number
+  totalLaps: number
+  turns: number
+  circuitId: string
+}
+
+export interface TrackVisualProps {
+  circuitName: string
+}
+
+export interface LapRecord {
+  lap_record: string
+  lap_record_driver: string
+  lap_record_year: string
+}
+
+export interface TimeLeft {
+  days: number
+  hours: number
+  minutes: number
+  seconds: number
+}
+
+export interface ComparisonItem {
+  position: number
+  actual_driver: string
+  actual_team: string
+  predicted_driver: string
+  predicted_team: string
+  correct: boolean
+}
+
+export interface PredictionComparison {
+  available: boolean
+  race_name?: string
+  predicted_at?: string
+  sessions_used?: string[]
+  comparison?: ComparisonItem[]
+  correct_count?: number
+  total?: number
 }
