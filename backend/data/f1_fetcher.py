@@ -73,8 +73,10 @@ def get_upcoming_race():
                 "name": race["raceName"],
                 "circuit": race["Circuit"]["circuitName"],
                 "country": race["Circuit"]["Location"]["country"],
+                "location": race["Circuit"]["Location"]["locality"],
                 "date": race["date"],
-                "round": race["round"]
+                "round": race["round"],
+                "time": race["time"]
             }
     return None
 
@@ -96,3 +98,22 @@ def get_constructor_standings(year: int):
         for s in standings
         if s.get("position")
     ]
+
+def get_circuit_lap_record(circuit_id: str) -> dict:
+    """Fetch current lap record for a circuit from Jolpica"""
+    url = f"https://api.jolpi.ca/ergast/f1/circuits/{circuit_id}/fastest/1/results.json?limit=1"
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        races = data["MRData"]["RaceTable"]["Races"]
+        if not races:
+            return {}
+        result = races[0]["Results"][0]
+        return {
+            "lap_record": result["FastestLap"]["Time"]["time"],
+            "lap_record_driver": result["Driver"]["code"],
+            "lap_record_year": races[0]["season"]
+        }
+    except Exception as e:
+        print(f"[ERROR] Could not fetch lap record for {circuit_id}: {e}")
+        return {}

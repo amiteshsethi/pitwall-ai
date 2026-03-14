@@ -4,7 +4,7 @@ from engine.predictor import (
     generate_weekend_predictions,
     generate_race_predictions
 )
-from data.f1_fetcher import get_upcoming_race, get_driver_standings, get_constructor_standings
+from data.f1_fetcher import get_upcoming_race, get_driver_standings, get_constructor_standings ,get_circuit_lap_record
 
 app = FastAPI(title="PitWall AI", version="1.0.0")
 
@@ -129,3 +129,7 @@ def available_sessions(location: str, year: int = 2026):
         "year": year,
         "sessions": weekend_sessions
     }
+
+@app.get("/circuit/{circuit_id}/record")
+def circuit_lap_record(circuit_id: str):
+    return get_circuit_lap_record(circuit_id)
