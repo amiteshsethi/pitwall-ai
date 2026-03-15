@@ -8,7 +8,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.451,
     totalLaps: 56,
     turns: 16,
-    circuitId: "shanghai"
+    circuitId: "shanghai",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Shanghai_Circuit.svg/400px-Shanghai_Circuit.svg.png"
   },
   "Albert Park Grand Prix Circuit": {
     name: "Albert Park Grand Prix Circuit",
@@ -17,7 +18,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.278,
     totalLaps: 58,
     turns: 16,
-    circuitId: "albert_park"
+    circuitId: "albert_park",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Albert_Park_circuit_2021.svg/400px-Albert_Park_circuit_2021.svg.png"
   },
   "Suzuka Circuit": {
     name: "Suzuka Circuit",
@@ -26,7 +28,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.807,
     totalLaps: 53,
     turns: 18,
-    circuitId: "suzuka"
+    circuitId: "suzuka",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Suzuka_circuit_s.svg/400px-Suzuka_circuit_s.svg.png"
   },
   "Bahrain International Circuit": {
     name: "Bahrain International Circuit",
@@ -35,7 +38,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.412,
     totalLaps: 57,
     turns: 15,
-    circuitId: "bahrain"
+    circuitId: "bahrain",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Bahrain_Circuit.svg/400px-Bahrain_Circuit.svg.png"
   },
   "Jeddah Corniche Circuit": {
     name: "Jeddah Corniche Circuit",
@@ -44,7 +48,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 6.174,
     totalLaps: 50,
     turns: 27,
-    circuitId: "jeddah"
+    circuitId: "jeddah",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Jeddah_Corniche_Circuit.svg/400px-Jeddah_Corniche_Circuit.svg.png"
   },
   "Miami International Autodrome": {
     name: "Miami International Autodrome",
@@ -53,7 +58,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.412,
     totalLaps: 57,
     turns: 19,
-    circuitId: "miami"
+    circuitId: "miami",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Miami_International_Autodrome.svg/400px-Miami_International_Autodrome.svg.png"
   },
   "Circuit de Monaco": {
     name: "Circuit de Monaco",
@@ -62,7 +68,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 3.337,
     totalLaps: 78,
     turns: 19,
-    circuitId: "monaco"
+    circuitId: "monaco",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Monte_Carlo_Formula_1_track_map.svg/400px-Monte_Carlo_Formula_1_track_map.svg.png"
   },
   "Circuit de Barcelona-Catalunya": {
     name: "Circuit de Barcelona-Catalunya",
@@ -71,7 +78,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 4.657,
     totalLaps: 66,
     turns: 14,
-    circuitId: "catalunya"
+    circuitId: "catalunya",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Circuit_de_Catalunya_track_map.svg/400px-Circuit_de_Catalunya_track_map.svg.png"
   },
   "Red Bull Ring": {
     name: "Red Bull Ring",
@@ -80,7 +88,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 4.318,
     totalLaps: 71,
     turns: 10,
-    circuitId: "red_bull_ring"
+    circuitId: "red_bull_ring",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Red_Bull_Ring_track_map.svg/400px-Red_Bull_Ring_track_map.svg.png"
   },
   "Silverstone Circuit": {
     name: "Silverstone Circuit",
@@ -89,7 +98,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.891,
     totalLaps: 52,
     turns: 18,
-    circuitId: "silverstone"
+    circuitId: "silverstone",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Silverstone_circuit_2011.svg/400px-Silverstone_circuit_2011.svg.png"
   },
   "Circuit de Spa-Francorchamps": {
     name: "Circuit de Spa-Francorchamps",
@@ -98,7 +108,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 7.004,
     totalLaps: 44,
     turns: 19,
-    circuitId: "spa"
+    circuitId: "spa",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Spa-Francorchamps_circuit_2007.svg/400px-Spa-Francorchamps_circuit_2007.svg.png"
   },
   "Hungaroring": {
     name: "Hungaroring",
@@ -107,7 +118,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 4.381,
     totalLaps: 70,
     turns: 14,
-    circuitId: "hungaroring"
+    circuitId: "hungaroring",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Hungaroring_track_map.svg/400px-Hungaroring_track_map.svg.png"
   },
   "Circuit Zandvoort": {
     name: "Circuit Zandvoort",
@@ -116,7 +128,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 4.259,
     totalLaps: 72,
     turns: 14,
-    circuitId: "zandvoort"
+    circuitId: "zandvoort",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Zandvoort_track_map.svg/400px-Zandvoort_track_map.svg.png"
   },
   "Autodromo Nazionale di Monza": {
     name: "Autodromo Nazionale di Monza",
@@ -125,7 +138,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.793,
     totalLaps: 53,
     turns: 11,
-    circuitId: "monza"
+    circuitId: "monza",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Monza_track_map.svg/400px-Monza_track_map.svg.png"
   },
   "Baku City Circuit": {
     name: "Baku City Circuit",
@@ -134,7 +148,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 6.003,
     totalLaps: 51,
     turns: 20,
-    circuitId: "baku"
+    circuitId: "baku",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Baku_Formula_1_track_map.svg/400px-Baku_Formula_1_track_map.svg.png"
   },
   "Marina Bay Street Circuit": {
     name: "Marina Bay Street Circuit",
@@ -143,7 +158,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 4.940,
     totalLaps: 62,
     turns: 19,
-    circuitId: "marina_bay"
+    circuitId: "marina_bay",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Singapore_circuit_map.svg/400px-Singapore_circuit_map.svg.png"
   },
   "Circuit of the Americas": {
     name: "Circuit of the Americas",
@@ -152,7 +168,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.513,
     totalLaps: 56,
     turns: 20,
-    circuitId: "americas"
+    circuitId: "americas",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Circuit_of_the_Americas_track_map.svg/400px-Circuit_of_the_Americas_track_map.svg.png"
   },
   "Autodromo Hermanos Rodriguez": {
     name: "Autodromo Hermanos Rodriguez",
@@ -161,7 +178,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 4.304,
     totalLaps: 71,
     turns: 17,
-    circuitId: "rodriguez"
+    circuitId: "rodriguez",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Autodromo_Hermanos_Rodriguez_track_map.svg/400px-Autodromo_Hermanos_Rodriguez_track_map.svg.png"
   },
   "Autodromo Jose Carlos Pace": {
     name: "Autodromo Jose Carlos Pace",
@@ -170,7 +188,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 4.309,
     totalLaps: 71,
     turns: 15,
-    circuitId: "interlagos"
+    circuitId: "interlagos",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Interlagos_track_map.svg/400px-Interlagos_track_map.svg.png"
   },
   "Las Vegas Strip Circuit": {
     name: "Las Vegas Strip Circuit",
@@ -179,7 +198,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 6.201,
     totalLaps: 50,
     turns: 17,
-    circuitId: "vegas"
+    circuitId: "vegas",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Las_Vegas_Strip_Circuit.svg/400px-Las_Vegas_Strip_Circuit.svg.png"
   },
   "Lusail International Circuit": {
     name: "Lusail International Circuit",
@@ -188,7 +208,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.380,
     totalLaps: 57,
     turns: 16,
-    circuitId: "losail"
+    circuitId: "losail",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Lusail_International_Circuit_track_map.svg/400px-Lusail_International_Circuit_track_map.svg.png"
   },
   "Yas Marina Circuit": {
     name: "Yas Marina Circuit",
@@ -197,7 +218,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.281,
     totalLaps: 58,
     turns: 16,
-    circuitId: "yas_marina"
+    circuitId: "yas_marina",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Yas_Marina_Circuit_2021.svg/400px-Yas_Marina_Circuit_2021.svg.png"
   },
   "Circuit de Madrid": {
     name: "Circuit de Madrid",
@@ -206,7 +228,8 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 5.474,
     totalLaps: 55,
     turns: 20,
-    circuitId: "madrid"
+    circuitId: "madrid",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Madrid_Circuit.svg/400px-Madrid_Circuit.svg.png"
   },
   "Circuit Gilles Villeneuve": {
     name: "Circuit Gilles Villeneuve",
@@ -215,6 +238,7 @@ export const CIRCUITS: Record<string, CircuitInfo> = {
     lapLengthKm: 4.361,
     totalLaps: 70,
     turns: 14,
-    circuitId: "villeneuve"
+    circuitId: "villeneuve",
+    trackImageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Montreal_Circuit.svg/400px-Montreal_Circuit.svg.png"
   },
 }
