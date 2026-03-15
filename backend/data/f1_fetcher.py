@@ -56,30 +56,41 @@ def get_driver_standings(year: int):
     return result
 
 def get_upcoming_race():
-    """Get the next race on the calendar via Jolpica API"""
-    from datetime import datetime
+    """Get the next race on the calendar"""
+    from datetime import datetime, timezone
     
     url = "https://api.jolpi.ca/ergast/f1/current.json"
     response = requests.get(url)
     data = response.json()
     races = data["MRData"]["RaceTable"]["Races"]
     
-    today = datetime.now().date()
+    now = datetime.now(timezone.utc)
     
     for race in races:
-        race_date = datetime.strptime(race["date"], "%Y-%m-%d").date()
-        if race_date >= today:
+        # Combine date + time for accurate comparison
+        race_time = race.get("time", "15:00:00Z")
+        race_datetime_str = f"{race['date']}T{race_time}"
+        
+        # Parse as UTC datetime
+        race_datetime = datetime.fromisoformat(
+            race_datetime_str.replace("Z", "+00:00")
+        )
+        
+        # Add 3 hours buffer — race is ~2hrs, we want it gone after finish
+        from datetime import timedelta
+        race_end = race_datetime + timedelta(hours=3)
+        
+        if race_end > now:
             return {
                 "name": race["raceName"],
                 "circuit": race["Circuit"]["circuitName"],
                 "country": race["Circuit"]["Location"]["country"],
                 "location": race["Circuit"]["Location"]["locality"],
                 "date": race["date"],
-                "round": race["round"],
-                "time": race["time"]
+                "time": race.get("time", ""),
+                "round": race["round"]
             }
     return None
-
 def get_constructor_standings(year: int):
     """Fetch constructor championship standings via Jolpica API"""
     url = f"https://api.jolpi.ca/ergast/f1/{year}/constructorStandings.json"
@@ -119,12 +130,9 @@ def get_circuit_lap_record(circuit_id: str) -> dict:
         return {}
 
 def get_last_race_result(year: int) -> dict:
-    """
-    Fetch the most recent race result from Jolpica.
-    Returns top 10 finishers.
-    """
+    """Fetch the most recent race result from Jolpica"""
     try:
-        url = f"https://api.jolpi.ca/ergast/f1/{year}/results.json?limit=1&offset=0"
+        url = f"https://api.jolpi.ca/ergast/f1/{year}/results.json?limit=50&offset=0"
         response = requests.get(url, timeout=10)
         data = response.json()
 
@@ -135,20 +143,24 @@ def get_last_race_result(year: int) -> dict:
         race = races[-1]
         results = race["Results"]
 
+        top10 = []
+        for r in results[:10]:
+            constructors = r.get("Constructors", [])
+            team = constructors[0]["name"] if constructors else "Unknown"
+            top10.append({
+                "position": int(r["position"]),
+                "driver_code": r["Driver"]["code"],
+                "driver_name": f"{r['Driver']['givenName']} {r['Driver']['familyName']}",
+                "team": team,
+            })
+
         return {
             "race_name": race["raceName"],
             "round": int(race["round"]),
             "date": race["date"],
-            "top10": [
-                {
-                    "position": int(r["position"]),
-                    "driver_code": r["Driver"]["code"],
-                    "driver_name": f"{r['Driver']['givenName']} {r['Driver']['familyName']}",
-                    "team": r["Constructors"][0]["name"],
-                }
-                for r in results[:10]
-            ]
+            "top10": top10
         }
+
     except Exception as e:
         print(f"[ERROR] Failed to fetch last race result: {e}")
         return {}

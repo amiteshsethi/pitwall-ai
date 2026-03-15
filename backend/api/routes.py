@@ -194,10 +194,6 @@ def predictions(track: str, location: str, year: int = 2026):
 
 @app.get("/comparison")
 def prediction_comparison(year: int = 2026):
-    """
-    Returns last saved prediction vs actual race result.
-    Used on Home page to show accuracy.
-    """
     last_prediction = get_last_saved_prediction()
     if not last_prediction:
         return {"available": False}
@@ -206,28 +202,54 @@ def prediction_comparison(year: int = 2026):
     if not last_result:
         return {"available": False}
 
-    # Only show comparison if the race in prediction has finished
     if last_prediction["round"] != last_result["round"]:
         return {"available": False}
 
-    # Compare predicted podium vs actual top 3
     predicted_top3 = last_prediction["predicted_podium"][:3]
     actual_top3 = last_result["top10"][:3]
+
+    # Driver code to team mapping as fallback for Unknown teams
+    driver_team_map = {
+        "ANT": "Mercedes", "RUS": "Mercedes",
+        "HAM": "Ferrari", "LEC": "Ferrari",
+        "NOR": "McLaren", "PIA": "McLaren",
+        "VER": "Red Bull", "HAD": "Red Bull",
+        "GAS": "Alpine F1 Team", "COL": "Alpine F1 Team",
+        "ALB": "Williams", "SAI": "Williams",
+        "BEA": "Haas F1 Team", "OCO": "Haas F1 Team",
+        "LAW": "RB F1 Team", "LIN": "RB F1 Team",
+        "HUL": "Audi", "BOR": "Audi",
+        "PER": "Cadillac F1 Team", "BOT": "Cadillac F1 Team",
+        "ALO": "Aston Martin", "STR": "Aston Martin",
+    }
 
     comparison = []
     for i, actual in enumerate(actual_top3):
         predicted = predicted_top3[i] if i < len(predicted_top3) else None
-        correct = predicted and predicted["driver_code"] == actual["driver_code"]
+
+        # Resolve actual team — use mapping if Unknown
+        actual_team = actual["team"]
+        if actual_team == "Unknown":
+            actual_team = driver_team_map.get(actual["driver_code"], "Unknown")
+
+        predicted_team = predicted["team"] if predicted else "N/A"
+        predicted_driver = predicted["driver_code"] if predicted else "N/A"
+
+        driver_correct = predicted_driver == actual["driver_code"]
+        constructor_correct = predicted_team == actual_team
+
         comparison.append({
             "position": i + 1,
             "actual_driver": actual["driver_code"],
-            "actual_team": actual["team"],
-            "predicted_driver": predicted["driver_code"] if predicted else "N/A",
-            "predicted_team": predicted["team"] if predicted else "N/A",
-            "correct": correct
+            "actual_team": actual_team,
+            "predicted_driver": predicted_driver,
+            "predicted_team": predicted_team,
+            "driver_correct": driver_correct,
+            "constructor_correct": constructor_correct,
         })
 
-    correct_count = sum(1 for c in comparison if c["correct"])
+    driver_correct_count = sum(1 for c in comparison if c["driver_correct"])
+    constructor_correct_count = sum(1 for c in comparison if c["constructor_correct"])
 
     return {
         "available": True,
@@ -235,6 +257,7 @@ def prediction_comparison(year: int = 2026):
         "predicted_at": last_prediction["predicted_at"],
         "sessions_used": last_prediction["sessions_used"],
         "comparison": comparison,
-        "correct_count": correct_count,
+        "driver_correct_count": driver_correct_count,
+        "constructor_correct_count": constructor_correct_count,
         "total": len(comparison)
     }
