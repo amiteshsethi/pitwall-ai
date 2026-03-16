@@ -25,6 +25,7 @@ export default function TrackVisual({ circuitName }: TrackVisualProps) {
           alt={`${circuit.location} circuit map`}
           className="w-24 h-24 object-contain flex-shrink-0 opacity-80 invert"
           onError={(e) => {
+            console.log("Image failed:", circuit.trackImageUrl);
             e.currentTarget.style.display = "none";
           }}
         />
