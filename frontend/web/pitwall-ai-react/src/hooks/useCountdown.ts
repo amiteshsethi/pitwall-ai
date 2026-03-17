@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { TimeLeft } from '../types'
 
 
-export function useCountdown(date: string | null, time: string | null): TimeLeft {
+export function useCountDown(date: string | null, time: string | null): TimeLeft {
   const calculate = (): TimeLeft => {
     if (!date) return { days: 0, hours: 0, minutes: 0, seconds: 0 }
     const target = time ? new Date(`${date}T${time}`) : new Date(date)

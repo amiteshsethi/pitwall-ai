@@ -7,7 +7,7 @@ import {
 } from "../api/pitwall";
 import type { UpcomingRace, PredictionComparison } from "../types";
 import F1Loader from "../components/F1loader";
-import { useCountdown } from "../hooks/useCountDown";
+import { useCountDown } from "../hooks/useCountDown";
 
 export default function Home() {
   const [race, setRace] = useState<UpcomingRace | null>(null);
@@ -18,7 +18,7 @@ export default function Home() {
     null,
   );
 
-  const timeLeft = useCountdown(race?.date ?? null, race?.time ?? null);
+  const timeLeft = useCountDown(race?.date ?? null, race?.time ?? null);
 
   useEffect(() => {
     Promise.all([getUpcomingRace(), getPredictionComparison()])
