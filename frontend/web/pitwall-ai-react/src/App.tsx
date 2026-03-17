@@ -3,6 +3,7 @@ import Navbar from './components/Navbar'
 import Home from './pages/Home'
 import Standings from './pages/Standings'
 import RaceWeekend from './pages/Raceweekend'
+import Footer from './components/Footer'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
             <Route path="/standings" element={<Standings />} />
           </Routes>
         </main>
+        <Footer />
       </div>
     </BrowserRouter>
   )
