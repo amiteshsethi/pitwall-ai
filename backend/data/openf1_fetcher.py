@@ -203,7 +203,6 @@ def get_session_status() -> dict:
         "session": session
     }
 
-
 def get_session_by_name(session_name: str, location: str) -> Optional[dict]:
     """
     Find a specific session by name and location.

@@ -261,3 +261,80 @@ def prediction_comparison(year: int = 2026):
         "constructor_correct_count": constructor_correct_count,
         "total": len(comparison)
     }
+
+@app.get("/user/stats/{user_id}")
+def user_stats(user_id: str):
+    """
+    Fetch user's season stats:
+    - Total points
+    - Races entered
+    - Best race
+    - Average points per race
+    - Current streak
+    """
+    try:
+        from data.supabase_client import get_supabase
+        supabase = get_supabase()
+
+        scores = supabase.table("user_scores") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .order("scored_at", desc=False) \
+            .execute()
+
+        picks = supabase.table("user_picks") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .execute()
+
+        if not scores.data:
+            return {
+                "total_points": 0,
+                "races_entered": len(picks.data) if picks.data else 0,
+                "best_race": None,
+                "avg_points": 0,
+                "streak": 0,
+                "tagline": "Just getting started — submit your first picks!"
+            }
+
+        total_points = sum(s["total_points"] for s in scores.data)
+        races_scored = len(scores.data)
+        avg_points = round(total_points / races_scored, 1)
+        best_race = max(scores.data, key=lambda x: x["total_points"])
+
+        # Calculate streak — consecutive races with picks submitted
+        streak = len(picks.data)
+
+        # Dynamic tagline
+        if total_points == 0:
+            tagline = "Just getting started — submit your first picks!"
+        elif avg_points > 30:
+            tagline = "You're outpredicting most fans this season"
+        elif avg_points > 20:
+            tagline = "Solid predictions — keep it up"
+        else:
+            tagline = "Every race is a chance to beat the AI"
+
+        return {
+            "total_points": total_points,
+            "races_entered": len(picks.data),
+            "races_scored": races_scored,
+            "best_race": best_race["race_name"],
+            "best_race_points": best_race["total_points"],
+            "avg_points": avg_points,
+            "streak": streak,
+            "tagline": tagline
+        }
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch user stats: {e}")
+        return {
+            "total_points": 0,
+            "races_entered": 0,
+            "races_scored": 0,
+            "best_race": None,
+            "best_race_points": 0,
+            "avg_points": 0,
+            "streak": 0,
+            "tagline": "Just getting started — submit your first picks!"
+        }
