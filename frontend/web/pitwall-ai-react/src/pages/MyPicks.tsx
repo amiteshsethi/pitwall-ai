@@ -115,16 +115,14 @@ export default function MyPicks() {
     };
 
     try {
-      let response = [];
-
       if (existingPick) {
-        response = await updateUserPicks(
+        await updateUserPicks(
           user.id,
           parseInt(race.round),
           pickData,
         );
       } else {
-        response = await createUserPicks(
+        await createUserPicks(
           user.id,
           parseInt(race.round),
           pickData,
