@@ -115,7 +115,7 @@ export default function MyPicks() {
     };
 
     try {
-      let response;
+      let response = [];
 
       if (existingPick) {
         response = await updateUserPicks(
