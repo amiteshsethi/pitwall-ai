@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { getWeekendPredictions, getUpcomingRace, getUserStats } from '../api/pitwall'
 import { supabase } from '../lib/supabase'
@@ -18,7 +17,6 @@ const ROOKIES_2026 = [
 
 export default function MyPicks() {
   const { user } = useAuth()
-  const navigate = useNavigate()
 
   const [race, setRace] = useState<UpcomingRace | null>(null)
   const [prediction, setPrediction] = useState<Prediction | null>(null)
