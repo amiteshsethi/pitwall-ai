@@ -61,3 +61,8 @@ export const getPredictionComparison = async () => {
   const { data } = await api.get('/comparison')
   return data
 }
+
+export const getUserStats = async (userId: string) => {
+  const { data } = await api.get(`/user/stats/${userId}`)
+  return data
+}

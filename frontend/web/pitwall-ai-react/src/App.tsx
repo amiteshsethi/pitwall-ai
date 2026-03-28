@@ -1,9 +1,12 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Navbar from './components/Navbar'
-import Home from './pages/Home'
-import Standings from './pages/Standings'
-import RaceWeekend from './pages/Raceweekend'
-import Footer from './components/Footer'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import Home from "./pages/Home";
+import Standings from "./pages/Standings";
+import RaceWeekend from "./pages/Raceweekend";
+import Footer from "./components/Footer";
+import Login from "./pages/Login";
+import AuthGuard from "./components/AuthGuard";
+import MyPicks from "./pages/MyPicks";
 
 export default function App() {
   return (
@@ -15,10 +18,19 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/race" element={<RaceWeekend />} />
             <Route path="/standings" element={<Standings />} />
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/picks"
+              element={
+                <AuthGuard>
+                  <MyPicks />
+                </AuthGuard>
+              }
+            />
           </Routes>
         </main>
         <Footer />
       </div>
     </BrowserRouter>
-  )
+  );
 }
