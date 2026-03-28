@@ -97,3 +97,14 @@ export interface PredictionComparison {
   driver_correct_count: number;
   constructor_correct_count: number;
 }
+
+export interface UserStats {
+  total_points: number
+  races_entered: number
+  races_scored: number
+  best_race: string | null
+  best_race_points: number
+  avg_points: number
+  streak: number
+  tagline: string
+}

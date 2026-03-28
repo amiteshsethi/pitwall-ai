@@ -8,8 +8,10 @@ import {
 import type { UpcomingRace, PredictionComparison } from "../types";
 import F1Loader from "../components/F1loader";
 import { useCountdown } from "../hooks/customhooks";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Home() {
+  const { user } = useAuth();
   const [race, setRace] = useState<UpcomingRace | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionCount, setSessionCount] = useState<number>(0);
@@ -56,6 +58,63 @@ export default function Home() {
         >
           View Race Predictions
         </Link>
+      </div>
+      <div className="group relative overflow-hidden border border-red-500/30 hover:border-red-500 rounded-2xl p-8 bg-zinc-950 transition-all duration-300 cursor-pointer">
+        <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-red-500 text-xs font-semibold tracking-widest uppercase mb-2">
+              New Challenge
+            </p>
+            <h2 className="text-3xl font-black text-white mb-2">
+              Can You Beat the AI?
+            </h2>
+            <p className="text-zinc-400 text-sm max-w-lg">
+              PitWall AI predicted the correct constructor for every podium
+              position in the last GP. Think you can do better? Submit your
+              picks before qualifying locks and find out.
+            </p>
+          </div>
+
+          <div className="flex-shrink-0 ml-8">
+            {user ? (
+              <Link to="/picks" className="flex flex-col items-center gap-1">
+                <div className="bg-red-500 hover:bg-red-600 text-white font-black px-8 py-4 rounded-xl transition-colors text-lg">
+                  Submit Picks
+                </div>
+                <p className="text-zinc-600 text-xs">
+                  Logged in as {user.email?.split("@")[0]}
+                </p>
+              </Link>
+            ) : (
+              <Link to="/login" className="flex flex-col items-center gap-2">
+                <div className="bg-red-500 hover:bg-red-600 text-white font-black px-8 py-4 rounded-xl transition-colors text-lg">
+                  Sign In to Predict
+                </div>
+                <p className="text-zinc-600 text-xs">
+                  Free · No credit card needed
+                </p>
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* AI vs Human stat */}
+        <div className="flex gap-8 mt-6 pt-6 border-t border-zinc-800">
+          <div>
+            <p className="text-2xl font-black text-red-500">3/3</p>
+            <p className="text-zinc-500 text-xs mt-1">
+              AI constructor accuracy · Chinese GP
+            </p>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-zinc-400">?/3</p>
+            <p className="text-zinc-500 text-xs mt-1">
+              Your accuracy · Submit picks to find out
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Loader */}
@@ -214,8 +273,8 @@ export default function Home() {
           </div>
 
           <p className="text-zinc-600 text-xs mt-6">
-            PitWall AI got {comparison.driver_correct_count}/{comparison.total} podium
-            positions correct
+            PitWall AI got {comparison.driver_correct_count}/{comparison.total}{" "}
+            podium positions correct
           </p>
           <div className="flex gap-6 mt-6">
             <div>
