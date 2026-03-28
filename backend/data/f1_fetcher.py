@@ -122,7 +122,7 @@ def get_circuit_lap_record(circuit_id: str) -> dict:
         result = races[0]["Results"][0]
         return {
             "lap_record": result["FastestLap"]["Time"]["time"],
-            "lap_record_driver": result["Driver"]["code"],
+            "lap_record_driver": result["Driver"]["givenName"] + " " + result["Driver"]["familyName"],
             "lap_record_year": races[0]["season"]
         }
     except Exception as e:
