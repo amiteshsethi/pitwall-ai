@@ -338,3 +338,155 @@ def user_stats(user_id: str):
             "streak": 0,
             "tagline": "Just getting started — submit your first picks!"
         }
+
+
+@app.get("/user/picks/{user_id}/{round}")
+def get_user_picks(user_id: str, round: int):
+    """
+    Fetch user's picks for a specific race round.
+    Returns pick data if exists, empty response otherwise.
+    """
+    try:
+        supabase = get_supabase()
+
+        picks = supabase.table("user_picks") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .eq("year", 2026) \
+            .eq("round", round) \
+            .single() \
+            .execute()
+
+        if picks.data:
+            return {
+                "exists": True,
+                "id": picks.data.get("id"),
+                "is_locked": picks.data.get("is_locked", False),
+                "p1_pick": picks.data.get("p1_pick"),
+                "p2_pick": picks.data.get("p2_pick"),
+                "p3_pick": picks.data.get("p3_pick"),
+                "rookie_pick": picks.data.get("rookie_pick"),
+            }
+        else:
+            return {"exists": False}
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch user picks: {e}")
+        return {"exists": False}
+
+
+@app.post("/user/picks/{user_id}/{round}")
+def create_user_picks(user_id: str, round: int, pick_data: dict):
+    """
+    Create new picks for user for a race round.
+    """
+    try:
+        supabase = get_supabase()
+
+        race = get_upcoming_race()
+        if not race:
+            raise HTTPException(status_code=400, detail="No upcoming race found")
+
+        insert_data = {
+            "user_id": user_id,
+            "race_name": race["name"],
+            "year": 2026,
+            "round": round,
+            "p1_pick": pick_data.get("p1_pick"),
+            "p2_pick": pick_data.get("p2_pick"),
+            "p3_pick": pick_data.get("p3_pick"),
+            "rookie_pick": pick_data.get("rookie_pick"),
+            "is_locked": False,
+        }
+
+        result = supabase.table("user_picks").insert(insert_data).execute()
+
+        if result.data:
+            return {"success": True, "id": result.data[0].get("id")}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create picks")
+
+    except Exception as e:
+        print(f"[ERROR] Failed to create picks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/user/picks/{user_id}/{round}")
+def update_user_picks(user_id: str, round: int, pick_data: dict):
+    """
+    Update existing picks for user for a race round.
+    """
+    try:
+        supabase = get_supabase()
+
+        # First fetch existing picks to get the ID
+        existing = supabase.table("user_picks") \
+            .select("id") \
+            .eq("user_id", user_id) \
+            .eq("year", 2026) \
+            .eq("round", round) \
+            .single() \
+            .execute()
+
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Picks not found")
+
+        pick_id = existing.data["id"]
+
+        update_data = {
+            "p1_pick": pick_data.get("p1_pick"),
+            "p2_pick": pick_data.get("p2_pick"),
+            "p3_pick": pick_data.get("p3_pick"),
+            "rookie_pick": pick_data.get("rookie_pick"),
+        }
+
+        result = supabase.table("user_picks") \
+            .update(update_data) \
+            .eq("id", pick_id) \
+            .execute()
+
+        if result.data:
+            return {"success": True}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update picks")
+
+    except Exception as e:
+        print(f"[ERROR] Failed to update picks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/user/picks/{user_id}/{round}/lock")
+def lock_user_picks(user_id: str, round: int):
+    """
+    Lock picks after Qualifying starts/ends.
+    """
+    try:
+        supabase = get_supabase()
+
+        # First fetch existing picks to get the ID
+        existing = supabase.table("user_picks") \
+            .select("id") \
+            .eq("user_id", user_id) \
+            .eq("year", 2026) \
+            .eq("round", round) \
+            .single() \
+            .execute()
+
+        if not existing.data:
+            return {"success": False, "message": "Picks not found"}
+
+        pick_id = existing.data["id"]
+
+        result = supabase.table("user_picks") \
+            .update({"is_locked": True}) \
+            .eq("id", pick_id) \
+            .execute()
+
+        if result.data:
+            return {"success": True, "is_locked": True}
+        else:
+            return {"success": False, "message": "Failed to lock picks"}
+
+    except Exception as e:
+        print(f"[ERROR] Failed to lock picks: {e}")
+        return {"success": False, "message": str(e)}
