@@ -349,30 +349,31 @@ def get_user_picks(user_id: str, round: int):
     try:
         supabase = get_supabase()
 
-        picks = supabase.table("user_picks") \
+        # Don't use .single() — use .select() and check results manually
+        picks_result = supabase.table("user_picks") \
             .select("*") \
             .eq("user_id", user_id) \
             .eq("year", 2026) \
             .eq("round", round) \
-            .single() \
             .execute()
 
-        if picks.data:
+        if picks_result.data and len(picks_result.data) > 0:
+            picks = picks_result.data[0]
             return {
                 "exists": True,
-                "id": picks.data.get("id"),
-                "is_locked": picks.data.get("is_locked", False),
-                "p1_pick": picks.data.get("p1_pick"),
-                "p2_pick": picks.data.get("p2_pick"),
-                "p3_pick": picks.data.get("p3_pick"),
-                "rookie_pick": picks.data.get("rookie_pick"),
+                "id": picks.get("id"),
+                "is_locked": picks.get("is_locked", False),
+                "p1_pick": picks.get("p1_pick"),
+                "p2_pick": picks.get("p2_pick"),
+                "p3_pick": picks.get("p3_pick"),
+                "rookie_pick": picks.get("rookie_pick"),
             }
         else:
             return {"exists": False}
 
     except Exception as e:
         print(f"[ERROR] Failed to fetch user picks: {e}")
-        return {"exists": False}
+        return {"exists": False, "error": str(e)}
 
 
 @app.post("/user/picks/{user_id}/{round}")
@@ -419,19 +420,18 @@ def update_user_picks(user_id: str, round: int, pick_data: dict):
     try:
         supabase = get_supabase()
 
-        # First fetch existing picks to get the ID
-        existing = supabase.table("user_picks") \
+        # Fetch existing picks to get the ID
+        existing_result = supabase.table("user_picks") \
             .select("id") \
             .eq("user_id", user_id) \
             .eq("year", 2026) \
             .eq("round", round) \
-            .single() \
             .execute()
 
-        if not existing.data:
+        if not existing_result.data or len(existing_result.data) == 0:
             raise HTTPException(status_code=404, detail="Picks not found")
 
-        pick_id = existing.data["id"]
+        pick_id = existing_result.data[0]["id"]
 
         update_data = {
             "p1_pick": pick_data.get("p1_pick"),
@@ -463,19 +463,18 @@ def lock_user_picks(user_id: str, round: int):
     try:
         supabase = get_supabase()
 
-        # First fetch existing picks to get the ID
-        existing = supabase.table("user_picks") \
+        # Fetch existing picks to get the ID
+        existing_result = supabase.table("user_picks") \
             .select("id") \
             .eq("user_id", user_id) \
             .eq("year", 2026) \
             .eq("round", round) \
-            .single() \
             .execute()
 
-        if not existing.data:
+        if not existing_result.data or len(existing_result.data) == 0:
             return {"success": False, "message": "Picks not found"}
 
-        pick_id = existing.data["id"]
+        pick_id = existing_result.data[0]["id"]
 
         result = supabase.table("user_picks") \
             .update({"is_locked": True}) \
