@@ -68,7 +68,7 @@ export default function Home() {
               New Challenge
             </p>
             <h2 className="text-3xl font-black text-white mb-2">
-              Can You Beat the AI?
+              Can You Beat the SUPER F1-AI?
             </h2>
             <p className="text-zinc-400 text-sm max-w-lg">
               PitWall AI predicted the correct constructor for every podium
