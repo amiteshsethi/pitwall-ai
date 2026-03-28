@@ -17,7 +17,13 @@ export default function TrackVisual({ circuitName }: TrackVisualProps) {
   if (!circuit) return null;
 
   return (
-    <div className="border border-zinc-800 rounded-2xl p-6 bg-zinc-950 flex gap-8">
+    <div
+      className="border border-zinc-800 rounded-2xl p-6 bg-zinc-950 flex gap-8"
+      style={{
+        background:
+          "radial-gradient(ellipse at top right, #3d0a0a 0%, #4e1414 60%)",
+      }}
+    >
       {/* Left — Option 4: Track outline + inline stats */}
       <div className="flex items-center gap-4 flex-1">
         <img
@@ -33,7 +39,10 @@ export default function TrackVisual({ circuitName }: TrackVisualProps) {
           <p className="text-white font-black text-xl tracking-wider">
             {circuit.location.toUpperCase()}
           </p>
-          <p className="text-zinc-500 text-xs mt-1">
+          <p className="inline-flex items-center gap-2 text-red-400 text-xs font-semibold uppercase tracking-widest rounded-full px-2 py-1 bg-red-500/10 mt-1">
+            Race-ready
+          </p>
+          <p className="text-zinc-500 text-xs mt-2">
             {circuit.lapLengthKm} km · {circuit.turns} turns
           </p>
           {lapRecord && (
@@ -42,7 +51,7 @@ export default function TrackVisual({ circuitName }: TrackVisualProps) {
                 Lap record: {lapRecord.lap_record}
               </p>
               <p className="text-zinc-600 text-xs mt-1">
-                {lapRecord.lap_record_driver}, {lapRecord.lap_record_year}
+                {lapRecord.lap_record_driver}, {lapRecord.lap_record_year} , {lapRecord.team}
               </p>
             </>
           )}

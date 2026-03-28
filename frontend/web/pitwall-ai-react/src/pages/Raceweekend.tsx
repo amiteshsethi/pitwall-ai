@@ -47,7 +47,7 @@ export default function RaceWeekend() {
       })
       .catch(() =>
         setError(
-          "Failed to fetch predictions. Make sure the backend is running.",
+          "Failed to fetch predictions. Please try again later or check your internet connection.",
         ),
       )
       .finally(() => setLoading(false));

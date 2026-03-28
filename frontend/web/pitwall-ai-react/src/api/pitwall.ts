@@ -66,3 +66,41 @@ export const getUserStats = async (userId: string) => {
   const { data } = await api.get(`/user/stats/${userId}`)
   return data
 }
+
+export const getUserPicks = async (userId: string, round: number) => {
+  const res = await axios.get(
+    `${BASE_URL}/user/picks/${userId}/${round}`
+  );
+  return res.data;
+};
+
+export const createUserPicks = async (
+  userId: string,
+  round: number,
+  data: any
+) => {
+  const res = await axios.post(
+    `${BASE_URL}/user/picks/${userId}/${round}`,
+    data
+  );
+  return res.data;
+};
+
+export const updateUserPicks = async (
+  userId: string,
+  round: number,
+  data: any
+) => {
+  const res = await axios.put(
+    `${BASE_URL}/user/picks/${userId}/${round}`,
+    data
+  );
+  return res.data;
+};
+
+export const lockUserPicks = async (userId: string, round: number) => {
+  const res = await axios.patch(
+    `${BASE_URL}/user/picks/${userId}/${round}/lock`
+  );
+  return res.data;
+};

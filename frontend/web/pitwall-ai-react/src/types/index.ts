@@ -68,6 +68,7 @@ export interface LapRecord {
   lap_record: string;
   lap_record_driver: string;
   lap_record_year: string;
+  team: string;
 }
 
 export interface TimeLeft {
