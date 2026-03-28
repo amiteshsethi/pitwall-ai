@@ -123,7 +123,8 @@ def get_circuit_lap_record(circuit_id: str) -> dict:
         return {
             "lap_record": result["FastestLap"]["Time"]["time"],
             "lap_record_driver": result["Driver"]["givenName"] + " " + result["Driver"]["familyName"],
-            "lap_record_year": races[0]["season"]
+            "lap_record_year": races[0]["season"],
+            "team": result["Constructor"]["name"]
         }
     except Exception as e:
         print(f"[ERROR] Could not fetch lap record for {circuit_id}: {e}")
