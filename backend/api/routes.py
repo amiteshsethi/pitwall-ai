@@ -5,7 +5,14 @@ from engine.predictor import (
     generate_race_predictions
 )
 from data.prediction_store import save_prediction, get_last_saved_prediction
-from data.f1_fetcher import get_upcoming_race, get_driver_standings, get_constructor_standings ,get_circuit_lap_record,get_last_race_result
+from data.f1_fetcher import (
+    get_upcoming_race,
+    get_driver_standings,
+    get_constructor_standings,
+    get_circuit_lap_record,
+    get_last_race_result
+)
+from data.supabase_client import get_supabase
 
 app = FastAPI(title="PitWall AI", version="1.0.0")
 
@@ -26,42 +33,15 @@ def root():
 def upcoming_race():
     race = get_upcoming_race()
     if not race:
-        raise HTTPException(
-            status_code=404,
-            detail="No upcoming race found"
-        )
+        raise HTTPException(status_code=404, detail="No upcoming race found")
     return race
 
 
-# @app.get("/predictions")
-# def predictions(
-#     track: str,
-#     location: str,
-#     year: int = 2026
-# ):
-#     """
-#     Main prediction endpoint.
-#     Automatically uses all available session data
-#     for the given race weekend.
-#     """
-#     if not track or not location:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="track and location parameters are required"
-#         )
-#     result = generate_weekend_predictions(track, location, year)
-    # return result
-
 @app.get("/predictions")
-def predictions(
-    track: str,
-    location: str,
-    year: int = 2026
-):
+def predictions(track: str, location: str, year: int = 2026):
     """
     Main prediction endpoint.
-    Automatically uses all available session data
-    for the given race weekend.
+    Automatically uses all available session data.
     Auto-saves prediction to Supabase after Qualifying.
     """
     if not track or not location:
@@ -72,7 +52,6 @@ def predictions(
 
     result = generate_weekend_predictions(track, location, year)
 
-    # Auto-save after Qualifying
     if result and result.get("predictions"):
         upcoming = get_upcoming_race()
         if upcoming:
@@ -90,53 +69,34 @@ def predictions(
 
 
 @app.get("/predictions/baseline")
-def baseline_predictions(
-    track: str,
-    year: int = 2026
-):
-    """
-    Baseline prediction with no session data.
-    Used before any practice sessions have started.
-    """
+def baseline_predictions(track: str, year: int = 2026):
+    """Baseline prediction with no session data."""
     if not track:
         raise HTTPException(
             status_code=400,
             detail="track parameter is required"
         )
-    result = generate_race_predictions(track, year)
-    return result
+    return generate_race_predictions(track, year)
 
 
 @app.get("/standings/drivers")
 def driver_standings(year: int = 2026):
-    """Current driver championship standings"""
     standings = get_driver_standings(year)
     if not standings:
-        raise HTTPException(
-            status_code=404,
-            detail="Could not fetch driver standings"
-        )
+        raise HTTPException(status_code=404, detail="Could not fetch driver standings")
     return {"year": year, "standings": standings}
 
 
 @app.get("/standings/constructors")
 def constructor_standings(year: int = 2026):
-    """Current constructor championship standings"""
     standings = get_constructor_standings(year)
     if not standings:
-        raise HTTPException(
-            status_code=404,
-            detail="Could not fetch constructor standings"
-        )
+        raise HTTPException(status_code=404, detail="Could not fetch constructor standings")
     return {"year": year, "standings": standings}
 
 
 @app.get("/sessions")
 def available_sessions(location: str, year: int = 2026):
-    """
-    List all sessions available for a race weekend location.
-    Useful for the frontend to know which sessions have data.
-    """
     import requests
     response = requests.get(
         f"https://api.openf1.org/v1/sessions?year={year}",
@@ -145,10 +105,7 @@ def available_sessions(location: str, year: int = 2026):
     all_sessions = response.json()
 
     if not isinstance(all_sessions, list):
-        raise HTTPException(
-            status_code=503,
-            detail="Could not fetch session data from OpenF1"
-        )
+        raise HTTPException(status_code=503, detail="Could not fetch session data from OpenF1")
 
     weekend_sessions = [
         {
@@ -161,35 +118,12 @@ def available_sessions(location: str, year: int = 2026):
         if s.get("location") == location
     ]
 
-    return {
-        "location": location,
-        "year": year,
-        "sessions": weekend_sessions
-    }
+    return {"location": location, "year": year, "sessions": weekend_sessions}
+
 
 @app.get("/circuit/{circuit_id}/record")
 def circuit_lap_record(circuit_id: str):
     return get_circuit_lap_record(circuit_id)
-
-@app.get("/predictions")
-def predictions(track: str, location: str, year: int = 2026):
-    result = generate_weekend_predictions(track, location, year)
-
-    # Auto-save after Qualifying
-    if result and result.get("predictions"):
-        upcoming = get_upcoming_race()
-        if upcoming:
-            save_prediction(
-                race_name=upcoming["name"],
-                track=track,
-                location=location,
-                year=year,
-                round=int(upcoming["round"]),
-                sessions_used=result["sessions_used"],
-                predictions=result["predictions"]
-            )
-
-    return result
 
 
 @app.get("/comparison")
@@ -208,7 +142,6 @@ def prediction_comparison(year: int = 2026):
     predicted_top3 = last_prediction["predicted_podium"][:3]
     actual_top3 = last_result["top10"][:3]
 
-    # Driver code to team mapping as fallback for Unknown teams
     driver_team_map = {
         "ANT": "Mercedes", "RUS": "Mercedes",
         "HAM": "Ferrari", "LEC": "Ferrari",
@@ -226,8 +159,6 @@ def prediction_comparison(year: int = 2026):
     comparison = []
     for i, actual in enumerate(actual_top3):
         predicted = predicted_top3[i] if i < len(predicted_top3) else None
-
-        # Resolve actual team — use mapping if Unknown
         actual_team = actual["team"]
         if actual_team == "Unknown":
             actual_team = driver_team_map.get(actual["driver_code"], "Unknown")
@@ -235,21 +166,15 @@ def prediction_comparison(year: int = 2026):
         predicted_team = predicted["team"] if predicted else "N/A"
         predicted_driver = predicted["driver_code"] if predicted else "N/A"
 
-        driver_correct = predicted_driver == actual["driver_code"]
-        constructor_correct = predicted_team == actual_team
-
         comparison.append({
             "position": i + 1,
             "actual_driver": actual["driver_code"],
             "actual_team": actual_team,
             "predicted_driver": predicted_driver,
             "predicted_team": predicted_team,
-            "driver_correct": driver_correct,
-            "constructor_correct": constructor_correct,
+            "driver_correct": predicted_driver == actual["driver_code"],
+            "constructor_correct": predicted_team == actual_team,
         })
-
-    driver_correct_count = sum(1 for c in comparison if c["driver_correct"])
-    constructor_correct_count = sum(1 for c in comparison if c["constructor_correct"])
 
     return {
         "available": True,
@@ -257,23 +182,15 @@ def prediction_comparison(year: int = 2026):
         "predicted_at": last_prediction["predicted_at"],
         "sessions_used": last_prediction["sessions_used"],
         "comparison": comparison,
-        "driver_correct_count": driver_correct_count,
-        "constructor_correct_count": constructor_correct_count,
+        "driver_correct_count": sum(1 for c in comparison if c["driver_correct"]),
+        "constructor_correct_count": sum(1 for c in comparison if c["constructor_correct"]),
         "total": len(comparison)
     }
 
+
 @app.get("/user/stats/{user_id}")
 def user_stats(user_id: str):
-    """
-    Fetch user's season stats:
-    - Total points
-    - Races entered
-    - Best race
-    - Average points per race
-    - Current streak
-    """
     try:
-        from data.supabase_client import get_supabase
         supabase = get_supabase()
 
         scores = supabase.table("user_scores") \
@@ -291,7 +208,9 @@ def user_stats(user_id: str):
             return {
                 "total_points": 0,
                 "races_entered": len(picks.data) if picks.data else 0,
+                "races_scored": 0,
                 "best_race": None,
+                "best_race_points": 0,
                 "avg_points": 0,
                 "streak": 0,
                 "tagline": "Just getting started — submit your first picks!"
@@ -301,11 +220,8 @@ def user_stats(user_id: str):
         races_scored = len(scores.data)
         avg_points = round(total_points / races_scored, 1)
         best_race = max(scores.data, key=lambda x: x["total_points"])
-
-        # Calculate streak — consecutive races with picks submitted
         streak = len(picks.data)
 
-        # Dynamic tagline
         if total_points == 0:
             tagline = "Just getting started — submit your first picks!"
         elif avg_points > 30:
@@ -342,23 +258,17 @@ def user_stats(user_id: str):
 
 @app.get("/user/picks/{user_id}/{round}")
 def get_user_picks(user_id: str, round: int):
-    """
-    Fetch user's picks for a specific race round.
-    Returns pick data if exists, empty response otherwise.
-    """
     try:
         supabase = get_supabase()
-
-        # Don't use .single() — use .select() and check results manually
-        picks_result = supabase.table("user_picks") \
+        result = supabase.table("user_picks") \
             .select("*") \
             .eq("user_id", user_id) \
             .eq("year", 2026) \
             .eq("round", round) \
             .execute()
 
-        if picks_result.data and len(picks_result.data) > 0:
-            picks = picks_result.data[0]
+        if result.data and len(result.data) > 0:
+            picks = result.data[0]
             return {
                 "exists": True,
                 "id": picks.get("id"),
@@ -368,8 +278,7 @@ def get_user_picks(user_id: str, round: int):
                 "p3_pick": picks.get("p3_pick"),
                 "rookie_pick": picks.get("rookie_pick"),
             }
-        else:
-            return {"exists": False}
+        return {"exists": False}
 
     except Exception as e:
         print(f"[ERROR] Failed to fetch user picks: {e}")
@@ -378,17 +287,13 @@ def get_user_picks(user_id: str, round: int):
 
 @app.post("/user/picks/{user_id}/{round}")
 def create_user_picks(user_id: str, round: int, pick_data: dict):
-    """
-    Create new picks for user for a race round.
-    """
     try:
         supabase = get_supabase()
-
         race = get_upcoming_race()
         if not race:
             raise HTTPException(status_code=400, detail="No upcoming race found")
 
-        insert_data = {
+        result = supabase.table("user_picks").insert({
             "user_id": user_id,
             "race_name": race["name"],
             "year": 2026,
@@ -398,14 +303,11 @@ def create_user_picks(user_id: str, round: int, pick_data: dict):
             "p3_pick": pick_data.get("p3_pick"),
             "rookie_pick": pick_data.get("rookie_pick"),
             "is_locked": False,
-        }
-
-        result = supabase.table("user_picks").insert(insert_data).execute()
+        }).execute()
 
         if result.data:
             return {"success": True, "id": result.data[0].get("id")}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to create picks")
+        raise HTTPException(status_code=500, detail="Failed to create picks")
 
     except Exception as e:
         print(f"[ERROR] Failed to create picks: {e}")
@@ -414,41 +316,31 @@ def create_user_picks(user_id: str, round: int, pick_data: dict):
 
 @app.put("/user/picks/{user_id}/{round}")
 def update_user_picks(user_id: str, round: int, pick_data: dict):
-    """
-    Update existing picks for user for a race round.
-    """
     try:
         supabase = get_supabase()
-
-        # Fetch existing picks to get the ID
-        existing_result = supabase.table("user_picks") \
+        existing = supabase.table("user_picks") \
             .select("id") \
             .eq("user_id", user_id) \
             .eq("year", 2026) \
             .eq("round", round) \
             .execute()
 
-        if not existing_result.data or len(existing_result.data) == 0:
+        if not existing.data:
             raise HTTPException(status_code=404, detail="Picks not found")
 
-        pick_id = existing_result.data[0]["id"]
-
-        update_data = {
-            "p1_pick": pick_data.get("p1_pick"),
-            "p2_pick": pick_data.get("p2_pick"),
-            "p3_pick": pick_data.get("p3_pick"),
-            "rookie_pick": pick_data.get("rookie_pick"),
-        }
-
         result = supabase.table("user_picks") \
-            .update(update_data) \
-            .eq("id", pick_id) \
+            .update({
+                "p1_pick": pick_data.get("p1_pick"),
+                "p2_pick": pick_data.get("p2_pick"),
+                "p3_pick": pick_data.get("p3_pick"),
+                "rookie_pick": pick_data.get("rookie_pick"),
+            }) \
+            .eq("id", existing.data[0]["id"]) \
             .execute()
 
         if result.data:
             return {"success": True}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to update picks")
+        raise HTTPException(status_code=500, detail="Failed to update picks")
 
     except Exception as e:
         print(f"[ERROR] Failed to update picks: {e}")
@@ -457,34 +349,24 @@ def update_user_picks(user_id: str, round: int, pick_data: dict):
 
 @app.patch("/user/picks/{user_id}/{round}/lock")
 def lock_user_picks(user_id: str, round: int):
-    """
-    Lock picks after Qualifying starts/ends.
-    """
     try:
         supabase = get_supabase()
-
-        # Fetch existing picks to get the ID
-        existing_result = supabase.table("user_picks") \
+        existing = supabase.table("user_picks") \
             .select("id") \
             .eq("user_id", user_id) \
             .eq("year", 2026) \
             .eq("round", round) \
             .execute()
 
-        if not existing_result.data or len(existing_result.data) == 0:
+        if not existing.data:
             return {"success": False, "message": "Picks not found"}
-
-        pick_id = existing_result.data[0]["id"]
 
         result = supabase.table("user_picks") \
             .update({"is_locked": True}) \
-            .eq("id", pick_id) \
+            .eq("id", existing.data[0]["id"]) \
             .execute()
 
-        if result.data:
-            return {"success": True, "is_locked": True}
-        else:
-            return {"success": False, "message": "Failed to lock picks"}
+        return {"success": bool(result.data), "is_locked": True}
 
     except Exception as e:
         print(f"[ERROR] Failed to lock picks: {e}")
