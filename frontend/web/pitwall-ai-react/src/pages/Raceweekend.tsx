@@ -19,6 +19,7 @@ export default function RaceWeekend() {
     minutes: 0,
     seconds: 0,
   });
+  
 
   useEffect(() => {
     if (!race) return;

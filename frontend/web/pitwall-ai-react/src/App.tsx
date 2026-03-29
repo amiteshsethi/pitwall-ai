@@ -7,9 +7,20 @@ import Footer from "./components/Footer";
 import Login from "./pages/Login";
 import AuthGuard from "./components/AuthGuard";
 import MyPicks from "./pages/MyPicks";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,  // 5 minutes
+      retry: 1,
+    }
+  }
+})
 
 export default function App() {
   return (
+    <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <div className="min-h-screen bg-black text-white">
         <Navbar />
@@ -32,5 +43,6 @@ export default function App() {
         <Footer />
       </div>
     </BrowserRouter>
+    </QueryClientProvider>
   );
 }

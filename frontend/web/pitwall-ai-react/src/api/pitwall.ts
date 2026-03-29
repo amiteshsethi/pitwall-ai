@@ -104,3 +104,13 @@ export const lockUserPicks = async (userId: string, round: number) => {
   );
   return res.data;
 };
+
+export const getUserPicksForRound = async (userId: string, round: number) => {
+  const { data } = await api.get(`/user/picks/${userId}/${round}`)
+  return data
+}
+
+export const getUserScores = async (userId: string) => {
+  const { data } = await api.get(`/scores/user/${userId}`)
+  return data.scores
+}

@@ -83,6 +83,7 @@ export interface ComparisonItem {
   actual_driver: string;
   actual_team: string;
   predicted_driver: string;
+  driver_correct: boolean;
   predicted_team: string;
   correct: boolean;
 }
@@ -108,4 +109,26 @@ export interface UserStats {
   avg_points: number
   streak: number
   tagline: string
+}
+
+export interface ScoreBreakdownItem {
+  pick: string
+  position: number | null
+  result: string
+  points: number
+  reason: string
+}
+
+export interface RaceScore {
+  id: string
+  race_name: string
+  round: number
+  total_points: number
+  driver_points: number
+  constructor_points: number
+  rookie_points: number
+  actual_p1: string
+  actual_p2: string
+  actual_p3: string
+  breakdown: ScoreBreakdownItem[]
 }

@@ -6,7 +6,7 @@ const links = [
   { path: '/', label: 'Home' },
   { path: '/race', label: 'Race Weekend' },
   { path: '/standings', label: 'Standings' },
-  { path: '/picks', label: 'My Picks' },
+  { path: '/picks', label: 'Predictions' },
 ]
 
 export default function Navbar() {
