@@ -14,6 +14,9 @@ from data.f1_fetcher import (
 )
 from data.supabase_client import get_supabase
 
+from engine.scoring import calculate_and_save_scores, score_user_picks
+from data.f1_fetcher import get_race_result_by_round
+
 app = FastAPI(title="PitWall AI", version="1.0.0")
 
 app.add_middleware(
@@ -33,9 +36,11 @@ def root():
 def upcoming_race():
     race = get_upcoming_race()
     if not race:
-        raise HTTPException(status_code=404, detail="No upcoming race found")
+        raise HTTPException(
+            status_code=503,
+            detail="Race data temporarily unavailable — Jolpica API may be down. Try again shortly."
+        )
     return race
-
 
 @app.get("/predictions")
 def predictions(track: str, location: str, year: int = 2026):
@@ -371,3 +376,52 @@ def lock_user_picks(user_id: str, round: int):
     except Exception as e:
         print(f"[ERROR] Failed to lock picks: {e}")
         return {"success": False, "message": str(e)}
+
+@app.post("/scores/calculate/{round}")
+def calculate_scores(round: int, year: int = 2026):
+    """
+    Trigger scoring for all users for a specific round.
+    Call this after race results are available.
+    """
+    result = calculate_and_save_scores(year, round)
+    return result
+
+
+@app.get("/scores/user/{user_id}")
+def get_user_scores(user_id: str):
+    """
+    Fetch all scores for a user across the season.
+    Includes breakdown per race.
+    """
+    try:
+        supabase = get_supabase()
+        scores = supabase.table("user_scores") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .order("round", desc=False) \
+            .execute()
+        return {"scores": scores.data or []}
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch scores: {e}")
+        return {"scores": []}
+
+
+@app.get("/scores/user/{user_id}/round/{round}")
+def get_user_score_for_round(user_id: str, round: int, year: int = 2026):
+    """
+    Fetch score for a specific user and round.
+    """
+    try:
+        supabase = get_supabase()
+        result = supabase.table("user_scores") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .eq("year", year) \
+            .eq("round", round) \
+            .execute()
+        if result.data:
+            return {"exists": True, "score": result.data[0]}
+        return {"exists": False}
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch score: {e}")
+        return {"exists": False}

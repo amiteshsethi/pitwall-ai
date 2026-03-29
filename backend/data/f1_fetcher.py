@@ -57,40 +57,42 @@ def get_driver_standings(year: int):
 
 def get_upcoming_race():
     """Get the next race on the calendar"""
-    from datetime import datetime, timezone
-    
-    url = "https://api.jolpi.ca/ergast/f1/current.json"
-    response = requests.get(url)
-    data = response.json()
-    races = data["MRData"]["RaceTable"]["Races"]
-    
-    now = datetime.now(timezone.utc)
-    
-    for race in races:
-        # Combine date + time for accurate comparison
-        race_time = race.get("time", "15:00:00Z")
-        race_datetime_str = f"{race['date']}T{race_time}"
-        
-        # Parse as UTC datetime
-        race_datetime = datetime.fromisoformat(
-            race_datetime_str.replace("Z", "+00:00")
-        )
-        
-        # Add 3 hours buffer — race is ~2hrs, we want it gone after finish
-        from datetime import timedelta
-        race_end = race_datetime + timedelta(hours=3)
-        
-        if race_end > now:
-            return {
-                "name": race["raceName"],
-                "circuit": race["Circuit"]["circuitName"],
-                "country": race["Circuit"]["Location"]["country"],
-                "location": race["Circuit"]["Location"]["locality"],
-                "date": race["date"],
-                "time": race.get("time", ""),
-                "round": race["round"]
-            }
-    return None
+    from datetime import datetime, timezone, timedelta
+
+    try:
+        url = "https://api.jolpi.ca/ergast/f1/current.json"
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        races = data["MRData"]["RaceTable"]["Races"]
+
+        now = datetime.now(timezone.utc)
+
+        for race in races:
+            race_time = race.get("time", "15:00:00Z")
+            race_datetime_str = f"{race['date']}T{race_time}"
+            race_datetime = datetime.fromisoformat(
+                race_datetime_str.replace("Z", "+00:00")
+            )
+            race_end = race_datetime + timedelta(hours=3)
+
+            if race_end > now:
+                return {
+                    "name": race["raceName"],
+                    "circuit": race["Circuit"]["circuitName"],
+                    "country": race["Circuit"]["Location"]["country"],
+                    "location": race["Circuit"]["Location"]["locality"],
+                    "date": race["date"],
+                    "time": race.get("time", ""),
+                    "round": race["round"]
+                }
+        return None
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch upcoming race: {e}")
+        print("[INFO] Jolpica API may be temporarily unavailable")
+        return None
+
 def get_constructor_standings(year: int):
     """Fetch constructor championship standings via Jolpica API"""
     url = f"https://api.jolpi.ca/ergast/f1/{year}/constructorStandings.json"
@@ -165,3 +167,49 @@ def get_last_race_result(year: int) -> dict:
     except Exception as e:
         print(f"[ERROR] Failed to fetch last race result: {e}")
         return {}
+
+def get_race_result_by_round(year: int, round: int) -> dict:
+    """Fetch race result for a specific round"""
+    try:
+        url = f"https://api.jolpi.ca/ergast/f1/{year}/{round}/results.json"
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        races = data["MRData"]["RaceTable"]["Races"]
+        if not races:
+            return {}
+        race = races[0]
+        results = race["Results"]
+        driver_team_map = {
+            "ANT": "Mercedes", "RUS": "Mercedes",
+            "HAM": "Ferrari", "LEC": "Ferrari",
+            "NOR": "McLaren", "PIA": "McLaren",
+            "VER": "Red Bull", "HAD": "Red Bull",
+            "GAS": "Alpine F1 Team", "COL": "Alpine F1 Team",
+            "ALB": "Williams", "SAI": "Williams",
+            "BEA": "Haas F1 Team", "OCO": "Haas F1 Team",
+            "LAW": "RB F1 Team", "LIN": "RB F1 Team",
+            "HUL": "Audi", "BOR": "Audi",
+            "PER": "Cadillac F1 Team", "BOT": "Cadillac F1 Team",
+            "ALO": "Aston Martin", "STR": "Aston Martin",
+        }
+        top10 = []
+        for r in results[:10]:
+            constructors = r.get("Constructors", [])
+            team = constructors[0]["name"] if constructors else driver_team_map.get(r["Driver"]["code"], "Unknown")
+            top10.append({
+                "position": int(r["position"]),
+                "driver_code": r["Driver"]["code"],
+                "driver_name": f"{r['Driver']['givenName']} {r['Driver']['familyName']}",
+                "team": team,
+            })
+        return {
+            "race_name": race["raceName"],
+            "round": int(race["round"]),
+            "date": race["date"],
+            "top10": top10
+        }
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch race result for round {round}: {e}")
+        return {}
+
