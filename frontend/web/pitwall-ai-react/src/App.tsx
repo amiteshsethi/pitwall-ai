@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import BackendAlert from "./components/BackendAlert";
 import Home from "./pages/Home";
 import Standings from "./pages/Standings";
 import RaceWeekend from "./pages/Raceweekend";
@@ -22,6 +23,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
     <BrowserRouter>
+      <BackendAlert />
       <div className="min-h-screen bg-black text-white">
         <Navbar />
         <main className="max-w-7xl mx-auto px-6 py-8">
