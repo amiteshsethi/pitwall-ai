@@ -45,7 +45,7 @@ export default function BackendAlert() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500/20 border-b border-yellow-500/40 backdrop-blur-sm">
+    <div className="fixed top-0 left-0 right-0 z-[100] bg-yellow-500/20 border-b border-yellow-500/40 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 flex-1">
           <div className="mt-1 flex-shrink-0">
