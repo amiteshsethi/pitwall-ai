@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 export default function BackendAlert() {
   const [isVisible, setIsVisible] = useState(true); // DEBUG: set to true to test visibility
-  const [isLoading, setIsLoading] = useState(false);
+  const [_isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const checkBackend = async () => {
