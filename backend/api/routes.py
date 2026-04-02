@@ -183,6 +183,7 @@ def prediction_comparison(year: int = 2026):
 
     return {
         "available": True,
+        "round": last_result["round"], 
         "race_name": last_result["race_name"],
         "predicted_at": last_prediction["predicted_at"],
         "sessions_used": last_prediction["sessions_used"],
