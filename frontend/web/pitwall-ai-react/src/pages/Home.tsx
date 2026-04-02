@@ -29,7 +29,7 @@ export default function Home() {
     staleTime: 10 * 60 * 1000,
   })
 
-  const { data: sessionData } = useQuery({
+  const { data: _sessionData } = useQuery({
     queryKey: ["predictions-session", race?.circuit, race?.location],
     queryFn: () => getWeekendPredictions(race!.circuit, race!.location),
     enabled: !!race,
