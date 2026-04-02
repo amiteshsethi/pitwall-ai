@@ -9,7 +9,7 @@ export default function BackendAlert() {
       try {
         setIsLoading(true);
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 8000); 
 
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/`,
@@ -36,8 +36,8 @@ export default function BackendAlert() {
     // Check on mount
     checkBackend();
 
-    // Check every 30 seconds
-    const interval = setInterval(checkBackend, 30000);
+    // Check every 60 seconds
+    const interval = setInterval(checkBackend, 60000);
 
     return () => clearInterval(interval);
   }, []);

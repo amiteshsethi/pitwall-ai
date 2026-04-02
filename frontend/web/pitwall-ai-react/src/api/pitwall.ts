@@ -114,3 +114,8 @@ export const getUserScores = async (userId: string) => {
   const { data } = await api.get(`/scores/user/${userId}`)
   return data.scores
 }
+
+export const getUserScoreForRound = async (userId: string, round: number) => {
+  const { data } = await api.get(`/scores/user/${userId}/round/${round}`)
+  return data
+}

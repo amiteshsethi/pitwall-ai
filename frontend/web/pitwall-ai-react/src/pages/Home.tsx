@@ -1,49 +1,64 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 import {
   getUpcomingRace,
   getWeekendPredictions,
   getPredictionComparison,
   getUserPicksForRound,
-} from "../api/pitwall";
-import type { UpcomingRace, PredictionComparison } from "../types";
-import F1Loader from "../components/F1loader";
-import { useCountdown } from "../hooks/customhooks";
-import { useAuth } from "../hooks/useAuth";
+  getUserScoreForRound,
+} from "../api/pitwall"
+import type { UpcomingRace, PredictionComparison } from "../types"
+import F1Loader from "../components/F1loader"
+import { useCountdown } from "../hooks/customhooks"
+import { useAuth } from "../hooks/useAuth"
 
 export default function Home() {
-  const { user } = useAuth();
-  const [race, setRace] = useState<UpcomingRace | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [_sessionCount, setSessionCount] = useState<number>(0);
-  const [loaderType] = useState(() => Math.floor(Math.random() * 4) + 1);
-  const [comparison, setComparison] = useState<PredictionComparison | null>(
-    null,
-  );
-  const [userHasPicks, setUserHasPicks] = useState(false);
+  const { user } = useAuth()
+  const [loaderType] = useState(() => Math.floor(Math.random() * 4) + 1)
 
-  const timeLeft = useCountdown(race?.date ?? null, race?.time ?? null);
+  const { data: race, isLoading: raceLoading } = useQuery<UpcomingRace>({
+    queryKey: ["upcoming-race"],
+    queryFn: getUpcomingRace,
+    staleTime: 10 * 60 * 1000,
+  })
 
-  useEffect(() => {
-    Promise.all([getUpcomingRace(), getPredictionComparison()])
-      .then(([r, c]) => {
-        setRace(r);
-        if (user && r.round) {
-          getUserPicksForRound(user.id, parseInt(r.round))
-            .then((p) => setUserHasPicks(p?.exists ?? false))
-            .catch(() => {});
-        }
-        setComparison(c);
-        getWeekendPredictions(r.circuit, r.location).then((p) =>
-          setSessionCount(p.session_count),
-        );
-      })
+  const { data: comparison, isLoading: comparisonLoading } = useQuery<PredictionComparison>({
+    queryKey: ["comparison"],
+    queryFn: getPredictionComparison,
+    staleTime: 10 * 60 * 1000,
+  })
 
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: sessionData } = useQuery({
+    queryKey: ["predictions-session", race?.circuit, race?.location],
+    queryFn: () => getWeekendPredictions(race!.circuit, race!.location),
+    enabled: !!race,
+    staleTime: 5 * 60 * 1000,
+    select: (data) => data.session_count,
+  })
+
+  const { data: userPicksData } = useQuery({
+    queryKey: ["user-picks", user?.id, race?.round],
+    queryFn: () => getUserPicksForRound(user!.id, parseInt(race!.round)),
+    enabled: !!user && !!race,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: userScore } = useQuery({
+    queryKey: ["user-score-last", user?.id, comparison?.round],
+    queryFn: () => getUserScoreForRound(user!.id, (comparison as any).round),
+    enabled: !!user && !!(comparison as any)?.round,
+    staleTime: 10 * 60 * 1000,
+    select: (data) => data?.exists ? data.score : null,
+  })
+
+  const timeLeft = useCountdown(race?.date ?? null, race?.time ?? null)
+  const loading = raceLoading || comparisonLoading
+  const userHasPicks = userPicksData?.exists ?? false
 
   return (
     <div className="space-y-4">
+
       {/* Hero */}
       <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-10 bg-zinc-950 hover:border-red-500 transition-all duration-300 cursor-pointer">
         <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
@@ -51,8 +66,7 @@ export default function Home() {
           Race Predictions
         </p>
         <h1 className="text-5xl font-black text-white mb-4">
-          Your Pitwall Super AI.
-          <br />
+          Your Pitwall Super AI.<br />
           <span className="text-zinc-500">Before the lights go out.</span>
         </h1>
         <p className="text-zinc-400 text-lg max-w-xl">
@@ -73,12 +87,12 @@ export default function Home() {
 
       {!loading && (
         <>
+
           {/* Can You Beat the AI */}
           <div
             className="group relative overflow-hidden border border-red-500/30 hover:border-red-500 rounded-2xl p-8 transition-all duration-300 cursor-pointer"
             style={{
-              background:
-                "radial-gradient(ellipse at top right, #3d0a0a 0%, #4e1414 60%)",
+              background: "radial-gradient(ellipse at top right, #3d0a0a 0%, #0f0f0f 60%)",
             }}
           >
             <div className="flex items-center justify-between">
@@ -98,10 +112,7 @@ export default function Home() {
 
               <div className="flex-shrink-0 ml-8">
                 {user ? (
-                  <Link
-                    to="/picks"
-                    className="flex flex-col items-center gap-1"
-                  >
+                  <Link to="/picks" className="flex flex-col items-center gap-1">
                     <div className="bg-red-500 hover:bg-red-600 text-white font-black px-8 py-4 rounded-xl transition-colors text-lg">
                       {userHasPicks ? "View My Picks" : "Submit Picks"}
                     </div>
@@ -112,10 +123,7 @@ export default function Home() {
                     </p>
                   </Link>
                 ) : (
-                  <Link
-                    to="/login"
-                    className="flex flex-col items-center gap-2"
-                  >
+                  <Link to="/login" className="flex flex-col items-center gap-2">
                     <div className="bg-red-500 hover:bg-red-600 text-white font-black px-8 py-4 rounded-xl transition-colors text-lg">
                       Sign In to Predict
                     </div>
@@ -130,18 +138,15 @@ export default function Home() {
             <div className="flex gap-8 mt-6 pt-6 border-t border-zinc-800">
               <div>
                 <p className="text-2xl font-black text-red-500">
-                  {comparison?.constructor_correct_count ?? "?"}/
-                  {comparison?.total ?? 3}
+                  {comparison?.constructor_correct_count ?? "?"}/{comparison?.total ?? 3}
                 </p>
                 <p className="text-zinc-500 text-xs mt-1">
-                  AI constructor accuracy ·{" "}
-                  {comparison?.race_name ?? "Last race"}
+                  AI constructor accuracy · {comparison?.race_name ?? "Last race"}
                 </p>
               </div>
               <div>
                 <p className="text-2xl font-black text-red-500">
-                  {comparison?.driver_correct_count ?? "?"}/
-                  {comparison?.total ?? 3}
+                  {comparison?.driver_correct_count ?? "?"}/{comparison?.total ?? 3}
                 </p>
                 <p className="text-zinc-500 text-xs mt-1">
                   AI driver accuracy · {comparison?.race_name ?? "Last race"}
@@ -150,9 +155,7 @@ export default function Home() {
               {comparison?.available && (
                 <div>
                   <p className="text-2xl font-black text-teal-400">
-                    {comparison.comparison
-                      ?.map((c) => c.actual_driver)
-                      .join(" · ")}
+                    {comparison.comparison?.map(c => c.actual_driver).join(" · ")}
                   </p>
                   <p className="text-zinc-500 text-xs mt-1">
                     Actual podium · {comparison.race_name}
@@ -160,10 +163,30 @@ export default function Home() {
                 </div>
               )}
               <div>
-                <p className="text-2xl font-black text-zinc-400">?/3</p>
-                <p className="text-zinc-500 text-xs mt-1">
-                  Your accuracy · Submit picks to find out
-                </p>
+                {userScore ? (
+                  <>
+                    <p className="text-2xl font-black text-green-400">
+                      {userScore.total_points} pts
+                    </p>
+                    <p className="text-zinc-500 text-xs mt-1">
+                      Your score · {comparison?.race_name}
+                    </p>
+                  </>
+                ) : user ? (
+                  <>
+                    <p className="text-2xl font-black text-zinc-400">—</p>
+                    <p className="text-zinc-500 text-xs mt-1">
+                      No picks submitted · {comparison?.race_name}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-black text-zinc-400">?</p>
+                    <p className="text-zinc-500 text-xs mt-1">
+                      Sign in to see your score
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -226,27 +249,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Stats Row */}
-          {/* <div className="grid grid-cols-4 gap-4">
-            {[
-              { label: "Prediction Factors", value: "6" },
-              { label: "Sessions Tracked", value: sessionCount.toString() },
-              { label: "Podium Accuracy", value: "100%" },
-              { label: "2026 Season", value: "LIVE" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="group relative overflow-hidden border border-zinc-800 rounded-xl p-6 bg-zinc-950 text-center hover:border-red-500 transition-all duration-300 cursor-pointer"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                <p className="text-4xl font-black text-white mb-1">
-                  {stat.value}
-                </p>
-                <p className="text-zinc-500 text-sm">{stat.label}</p>
-              </div>
-            ))}
-          </div> */}
-
           {/* Recent Predictions */}
           {comparison?.available && (
             <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-8 bg-zinc-950 hover:border-red-500 transition-all duration-300">
@@ -264,20 +266,14 @@ export default function Home() {
                     PitWall AI Predicted
                   </p>
                   <div className="space-y-2">
-                    {comparison.comparison?.map((c) => (
+                    {comparison.comparison?.map(c => (
                       <div
                         key={c.position}
                         className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-2"
                       >
-                        <span className="text-zinc-500 font-black text-sm w-6">
-                          P{c.position}
-                        </span>
-                        <span className="text-white font-black text-sm tracking-wider">
-                          {c.predicted_driver}
-                        </span>
-                        <span className="text-zinc-500 text-xs">
-                          {c.predicted_team}
-                        </span>
+                        <span className="text-zinc-500 font-black text-sm w-6">P{c.position}</span>
+                        <span className="text-white font-black text-sm tracking-wider">{c.predicted_driver}</span>
+                        <span className="text-zinc-500 text-xs">{c.predicted_team}</span>
                       </div>
                     ))}
                   </div>
@@ -288,7 +284,7 @@ export default function Home() {
                     Actual Result
                   </p>
                   <div className="space-y-2">
-                    {comparison.comparison?.map((c) => (
+                    {comparison.comparison?.map(c => (
                       <div
                         key={c.position}
                         className={`flex items-center gap-3 rounded-xl px-4 py-2 border ${
@@ -297,18 +293,10 @@ export default function Home() {
                             : "bg-red-500/5 border-red-500/20"
                         }`}
                       >
-                        <span className="text-zinc-500 font-black text-sm w-6">
-                          P{c.position}
-                        </span>
-                        <span className="text-white font-black text-sm tracking-wider">
-                          {c.actual_driver}
-                        </span>
-                        <span className="text-zinc-500 text-xs flex-1">
-                          {c.actual_team}
-                        </span>
-                        <span
-                          className={`text-xs font-bold ${c.driver_correct ? "text-green-400" : "text-red-400"}`}
-                        >
+                        <span className="text-zinc-500 font-black text-sm w-6">P{c.position}</span>
+                        <span className="text-white font-black text-sm tracking-wider">{c.actual_driver}</span>
+                        <span className="text-zinc-500 text-xs flex-1">{c.actual_team}</span>
+                        <span className={`text-xs font-bold ${c.driver_correct ? "text-green-400" : "text-red-400"}`}>
                           {c.driver_correct ? "correct" : "wrong"}
                         </span>
                       </div>
@@ -322,9 +310,7 @@ export default function Home() {
                   <p className="text-2xl font-black text-green-400">
                     {comparison.constructor_correct_count}/{comparison.total}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-1">
-                    Constructor accuracy
-                  </p>
+                  <p className="text-zinc-500 text-xs mt-1">Constructor accuracy</p>
                 </div>
                 <div>
                   <p className="text-2xl font-black text-red-400">
@@ -335,8 +321,10 @@ export default function Home() {
               </div>
             </div>
           )}
+
         </>
       )}
+
     </div>
-  );
+  )
 }

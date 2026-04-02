@@ -91,6 +91,7 @@ export interface ComparisonItem {
 export interface PredictionComparison {
   available: boolean;
   race_name?: string;
+  round?: number ;
   predicted_at?: string;
   sessions_used?: string[];
   comparison?: ComparisonItem[];
