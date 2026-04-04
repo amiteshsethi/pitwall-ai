@@ -68,45 +68,22 @@ export const getUserStats = async (userId: string) => {
 }
 
 export const getUserPicks = async (userId: string, round: number) => {
-  const res = await axios.get(
-    `${BASE_URL}/user/picks/${userId}/${round}`
-  );
-  return res.data;
-};
+  const { data } = await api.get(`/user/picks/${userId}/${round}`)
+  return data
+}
 
-export const createUserPicks = async (
-  userId: string,
-  round: number,
-  data: any
-) => {
-  const res = await axios.post(
-    `${BASE_URL}/user/picks/${userId}/${round}`,
-    data
-  );
-  return res.data;
-};
+export const createUserPicks = async (userId: string, round: number, picks: any) => {
+  const { data } = await api.post(`/user/picks/${userId}/${round}`, picks)
+  return data
+}
 
-export const updateUserPicks = async (
-  userId: string,
-  round: number,
-  data: any
-) => {
-  const res = await axios.put(
-    `${BASE_URL}/user/picks/${userId}/${round}`,
-    data
-  );
-  return res.data;
-};
+export const updateUserPicks = async (userId: string, round: number, picks: any) => {
+  const { data } = await api.put(`/user/picks/${userId}/${round}`, picks)
+  return data
+}
 
 export const lockUserPicks = async (userId: string, round: number) => {
-  const res = await axios.patch(
-    `${BASE_URL}/user/picks/${userId}/${round}/lock`
-  );
-  return res.data;
-};
-
-export const getUserPicksForRound = async (userId: string, round: number) => {
-  const { data } = await api.get(`/user/picks/${userId}/${round}`)
+  const { data } = await api.patch(`/user/picks/${userId}/${round}/lock`)
   return data
 }
 
