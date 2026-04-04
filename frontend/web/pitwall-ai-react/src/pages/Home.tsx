@@ -5,7 +5,7 @@ import {
   getUpcomingRace,
   getWeekendPredictions,
   getPredictionComparison,
-  getUserPicksForRound,
+  getUserPicks,
   getUserScoreForRound,
 } from "../api/pitwall"
 import type { UpcomingRace, PredictionComparison } from "../types"
@@ -39,7 +39,7 @@ export default function Home() {
 
   const { data: userPicksData } = useQuery({
     queryKey: ["user-picks", user?.id, race?.round],
-    queryFn: () => getUserPicksForRound(user!.id, parseInt(race!.round)),
+    queryFn: () => getUserPicks(user!.id, parseInt(race!.round)),
     enabled: !!user && !!race,
     staleTime: 5 * 60 * 1000,
   })
@@ -92,7 +92,7 @@ export default function Home() {
           <div
             className="group relative overflow-hidden border border-red-500/30 hover:border-red-500 rounded-2xl p-8 transition-all duration-300 cursor-pointer"
             style={{
-              background: "radial-gradient(ellipse at top right, #3d0a0a 0%, #0f0f0f 60%)",
+              background: "radial-gradient(ellipse at top right, #3d0a0a 0%, #4e1414 60%)",
             }}
           >
             <div className="flex items-center justify-between">

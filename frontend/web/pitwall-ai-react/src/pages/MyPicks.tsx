@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 import {
   getWeekendPredictions,
@@ -6,6 +6,7 @@ import {
   getUserStats,
   createUserPicks,
   updateUserPicks,
+  getUserPicks,
 } from "../api/pitwall";
 import SessionBadge from "../components/SessionBadge";
 import F1Loader from "../components/F1loader";
@@ -61,10 +62,26 @@ export default function MyPicks() {
     enabled: !!user,
   });
 
-  const isRaceWeek = race?.date
-    ? new Date() >=
-      new Date(new Date(race.date).getTime() - 3 * 24 * 60 * 60 * 1000)
-    : false;
+  const { data: picksData } = useQuery({
+  queryKey: ["user-picks", user?.id, race?.round],
+  queryFn: () => getUserPicks(user!.id, parseInt(race!.round)),
+  enabled: !!user && !!race,
+})
+
+useEffect(() => {
+  if (picksData?.exists) {
+    setExistingPick(picksData)
+    setP1Pick(picksData.p1_pick ?? "")
+    setP2Pick(picksData.p2_pick ?? "")
+    setP3Pick(picksData.p3_pick ?? "")
+    setRookiePick(picksData.rookie_pick ?? "")
+  }
+}, [picksData])
+
+const isRaceWeek = race?.date
+  ? new Date() >=
+    new Date(new Date(race.date).getTime() - 7 * 24 * 60 * 60 * 1000)
+  : false
 
   const isLocked =
     existingPick?.is_locked ||
@@ -283,7 +300,7 @@ export default function MyPicks() {
             Predictions open race week
           </p>
           <p className="text-zinc-400 text-xs">
-            Picks for the {race?.name} open on Thursday before the race. Check
+            Picks for the {race?.name} open on the race. Check
             back then to lock in your prediction.
           </p>
         </div>
