@@ -426,3 +426,160 @@ def get_user_score_for_round(user_id: str, round: int, year: int = 2026):
     except Exception as e:
         print(f"[ERROR] Failed to fetch score: {e}")
         return {"exists": False}
+
+@app.get("/leaderboard/season")
+def season_leaderboard(year: int = 2026):
+    """
+    Global season leaderboard — all users ranked by total points.
+    Joins user_scores with profiles for username and avatar_url.
+    """
+    try:
+        supabase = get_supabase()
+
+        scores = supabase.table("user_scores") \
+            .select("user_id, total_points, round, race_name") \
+            .eq("year", year) \
+            .execute()
+
+        if not scores.data:
+            return {"leaderboard": []}
+
+        # Aggregate per user
+        user_map: dict = {}
+        for row in scores.data:
+            uid = row["user_id"]
+            if uid not in user_map:
+                user_map[uid] = {"total_points": 0, "races_scored": 0}
+            user_map[uid]["total_points"] += row["total_points"]
+            user_map[uid]["races_scored"] += 1
+
+        if not user_map:
+            return {"leaderboard": []}
+
+        # Fetch profiles for all user_ids in one query
+        user_ids = list(user_map.keys())
+        profiles = supabase.table("profiles") \
+            .select("id, username, avatar_url") \
+            .in_("id", user_ids) \
+            .execute()
+
+        profile_map = {p["id"]: p for p in (profiles.data or [])}
+
+        leaderboard = []
+        for uid, stats in user_map.items():
+            profile = profile_map.get(uid, {})
+            races = stats["races_scored"]
+            total = stats["total_points"]
+            leaderboard.append({
+                "user_id": uid,
+                "username": profile.get("username") or "Anonymous",
+                "avatar_url": profile.get("avatar_url"),
+                "total_points": total,
+                "races_scored": races,
+                "avg_points": round(total / races, 1) if races > 0 else 0,
+            })
+
+        leaderboard.sort(key=lambda x: x["total_points"], reverse=True)
+
+        for i, entry in enumerate(leaderboard):
+            entry["rank"] = i + 1
+
+        return {"year": year, "leaderboard": leaderboard}
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch season leaderboard: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch leaderboard")
+
+
+@app.get("/leaderboard/race/{round}")
+def race_leaderboard(round: int, year: int = 2026):
+    """
+    Per-race leaderboard — all users ranked by points for a specific round.
+    Joins user_scores with user_picks and profiles.
+    """
+    try:
+        supabase = get_supabase()
+
+        scores = supabase.table("user_scores") \
+            .select("user_id, total_points, actual_p1, actual_p2, actual_p3, race_name") \
+            .eq("year", year) \
+            .eq("round", round) \
+            .execute()
+
+        if not scores.data:
+            return {"round": round, "leaderboard": []}
+
+        user_ids = [row["user_id"] for row in scores.data]
+
+        picks = supabase.table("user_picks") \
+            .select("user_id, p1_pick, p2_pick, p3_pick, rookie_pick") \
+            .eq("year", year) \
+            .eq("round", round) \
+            .in_("user_id", user_ids) \
+            .execute()
+
+        profiles = supabase.table("profiles") \
+            .select("id, username, avatar_url") \
+            .in_("id", user_ids) \
+            .execute()
+
+        picks_map = {p["user_id"]: p for p in (picks.data or [])}
+        profile_map = {p["id"]: p for p in (profiles.data or [])}
+
+        leaderboard = []
+        for row in scores.data:
+            uid = row["user_id"]
+            profile = profile_map.get(uid, {})
+            pick = picks_map.get(uid, {})
+            leaderboard.append({
+                "user_id": uid,
+                "username": profile.get("username") or "Anonymous",
+                "avatar_url": profile.get("avatar_url"),
+                "total_points": row["total_points"],
+                "race_name": row.get("race_name"),
+                "p1_pick": pick.get("p1_pick"),
+                "p2_pick": pick.get("p2_pick"),
+                "p3_pick": pick.get("p3_pick"),
+                "rookie_pick": pick.get("rookie_pick"),
+                "actual_p1": row.get("actual_p1"),
+                "actual_p2": row.get("actual_p2"),
+                "actual_p3": row.get("actual_p3"),
+            })
+
+        leaderboard.sort(key=lambda x: x["total_points"], reverse=True)
+
+        for i, entry in enumerate(leaderboard):
+            entry["rank"] = i + 1
+
+        return {"round": round, "year": year, "leaderboard": leaderboard}
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch race leaderboard: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch race leaderboard")
+
+@app.get("/leaderboard/scored-rounds")
+def scored_rounds(year: int = 2026):
+    try:
+        supabase = get_supabase()
+        result = supabase.table("user_scores") \
+            .select("round, race_name") \
+            .eq("year", year) \
+            .order("round", desc=False) \
+            .execute()
+
+        if not result.data:
+            return {"rounds": []}
+
+        seen = set()
+        rounds = []
+        for row in result.data:
+            r = row["round"]
+            if r not in seen:
+                seen.add(r)
+                rounds.append({"round": r, "name": row.get("race_name") or f"Round {r}"})
+
+        return {"year": year, "rounds": rounds}
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch scored rounds: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch scored rounds")
