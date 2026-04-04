@@ -96,3 +96,18 @@ export const getUserScoreForRound = async (userId: string, round: number) => {
   const { data } = await api.get(`/scores/user/${userId}/round/${round}`)
   return data
 }
+
+export const getSeasonLeaderboard = async () => {
+  const { data } = await api.get("/leaderboard/season")
+  return data
+}
+
+export const getRaceLeaderboard = async (round: number) => {
+  const { data } = await api.get(`/leaderboard/race/${round}`)
+  return data
+}
+
+export const getScoredRounds = async () => {
+  const { data } = await api.get("/leaderboard/scored-rounds")
+  return data
+}

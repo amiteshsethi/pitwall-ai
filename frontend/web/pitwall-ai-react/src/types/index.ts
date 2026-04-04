@@ -133,3 +133,30 @@ export interface RaceScore {
   actual_p3: string
   breakdown: ScoreBreakdownItem[]
 }
+
+
+export interface SeasonEntry {
+  rank: number
+  user_id: string
+  username: string
+  avatar_url: string | null
+  total_points: number
+  races_scored: number
+  avg_points: number
+}
+
+export interface RaceEntry {
+  rank: number
+  user_id: string
+  username: string
+  avatar_url: string | null
+  total_points: number
+  race_name: string | null
+  p1_pick: string | null
+  p2_pick: string | null
+  p3_pick: string | null
+  rookie_pick: string | null
+  actual_p1: string | null
+  actual_p2: string | null
+  actual_p3: string | null
+}

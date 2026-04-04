@@ -6,6 +6,7 @@ const links = [
   { path: '/', label: 'Home' },
   { path: '/race', label: 'Race Weekend' },
   { path: '/standings', label: 'Standings' },
+  { path: '/leaderboard', label: 'Leaderboard' },
   { path: '/picks', label: 'Predictions' },
 ]
 
