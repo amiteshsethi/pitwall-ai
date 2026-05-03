@@ -21,15 +21,15 @@ function RootLayoutNav() {
   useEffect(() => {
     if (loading) return
     const inTabsGroup = segments[0] === "(tabs)"
-    // if (!user && inTabsGroup) {
-    //   router.replace("/login")
-    // }
+    if (!user && inTabsGroup) {
+      router.replace("/login")
+    }
   }, [user, loading, segments])
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
-      {/* <Stack.Screen name="login" /> */}
+      <Stack.Screen name="login" />
     </Stack>
   )
 }
