@@ -137,11 +137,11 @@ def prediction_comparison(year: int = 2026):
     if not last_prediction:
         return {"available": False}
 
-    last_result = get_last_race_result(year)
-    if not last_result:
-        return {"available": False}
-
-    if last_prediction["round"] != last_result["round"]:
+    # Fetch the result for the specific round the prediction was saved for
+    # instead of requiring the latest Jolpica result to match
+    pred_round = last_prediction["round"]
+    last_result = get_race_result_by_round(year, pred_round)
+    if not last_result or not last_result.get("top10"):
         return {"available": False}
 
     predicted_top3 = last_prediction["predicted_podium"][:3]

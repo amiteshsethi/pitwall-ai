@@ -353,9 +353,10 @@ def get_all_available_sessions(location: str) -> list:
         return available
     
     # Filter to this race weekend and known session types
+    # Use case-insensitive contains match (consistent with get_session_by_name)
     weekend_sessions = [
         s for s in all_sessions
-        if s.get("location") == location
+        if location.lower() in s.get("location", "").lower()
         and s.get("session_name") in WEEKEND_SESSIONS
     ]
     
