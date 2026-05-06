@@ -4,7 +4,7 @@ from engine.predictor import (
     generate_weekend_predictions,
     generate_race_predictions
 )
-from data.prediction_store import save_prediction, get_last_saved_prediction
+from data.prediction_store import save_prediction, get_last_saved_prediction, get_prediction_by_round
 from data.f1_fetcher import (
     get_upcoming_race,
     get_driver_standings,
@@ -133,19 +133,27 @@ def circuit_lap_record(circuit_id: str):
 
 @app.get("/comparison")
 def prediction_comparison(year: int = 2026):
-    last_prediction = get_last_saved_prediction()
-    if not last_prediction:
+    # Start from the latest completed race result
+    last_result = get_last_race_result(year)
+    if not last_result:
         return {"available": False}
 
-    # Fetch the result for the specific round the prediction was saved for
-    # instead of requiring the latest Jolpica result to match
-    pred_round = last_prediction["round"]
-    last_result = get_race_result_by_round(year, pred_round)
-    if not last_result or not last_result.get("top10"):
-        return {"available": False}
+    # Try to find an AI prediction for the latest race
+    prediction = get_prediction_by_round(year, last_result["round"])
+    result = last_result
 
-    predicted_top3 = last_prediction["predicted_podium"][:3]
-    actual_top3 = last_result["top10"][:3]
+    # If no prediction for the latest race (e.g. data gap),
+    # fall back to the most recent round that has a saved prediction
+    if not prediction:
+        prediction = get_last_saved_prediction()
+        if not prediction:
+            return {"available": False}
+        result = get_race_result_by_round(year, prediction["round"])
+        if not result or not result.get("top10"):
+            return {"available": False}
+
+    predicted_top3 = prediction["predicted_podium"][:3]
+    actual_top3 = result["top10"][:3]
 
     driver_team_map = {
         "ANT": "Mercedes", "RUS": "Mercedes",
@@ -183,10 +191,10 @@ def prediction_comparison(year: int = 2026):
 
     return {
         "available": True,
-        "round": last_result["round"], 
-        "race_name": last_result["race_name"],
-        "predicted_at": last_prediction["predicted_at"],
-        "sessions_used": last_prediction["sessions_used"],
+        "round": result["round"], 
+        "race_name": result["race_name"],
+        "predicted_at": prediction["predicted_at"],
+        "sessions_used": prediction["sessions_used"],
         "comparison": comparison,
         "driver_correct_count": sum(1 for c in comparison if c["driver_correct"]),
         "constructor_correct_count": sum(1 for c in comparison if c["constructor_correct"]),

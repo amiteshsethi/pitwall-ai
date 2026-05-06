@@ -83,3 +83,26 @@ def get_last_saved_prediction() -> dict | None:
     except Exception as e:
         print(f"[ERROR] Failed to fetch last prediction: {e}")
         return None
+
+
+def get_prediction_by_round(year: int, round: int) -> dict | None:
+    """
+    Fetch saved AI prediction for a specific round.
+    """
+    try:
+        supabase = get_supabase()
+        result = supabase.table("predictions") \
+            .select("*") \
+            .eq("year", year) \
+            .eq("round", round) \
+            .limit(1) \
+            .execute()
+
+        if not result.data:
+            return None
+
+        return result.data[0]
+
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch prediction for round {round}: {e}")
+        return None
