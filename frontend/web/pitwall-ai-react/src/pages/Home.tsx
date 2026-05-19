@@ -134,61 +134,6 @@ export default function Home() {
                 )}
               </div>
             </div>
-
-            <div className="flex gap-8 mt-6 pt-6 border-t border-zinc-800">
-              <div>
-                <p className="text-2xl font-black text-red-500">
-                  {comparison?.constructor_correct_count ?? "?"}/{comparison?.total ?? 3}
-                </p>
-                <p className="text-zinc-500 text-xs mt-1">
-                  AI constructor accuracy · {comparison?.race_name ?? "Last race"}
-                </p>
-              </div>
-              <div>
-                <p className="text-2xl font-black text-red-500">
-                  {comparison?.driver_correct_count ?? "?"}/{comparison?.total ?? 3}
-                </p>
-                <p className="text-zinc-500 text-xs mt-1">
-                  AI driver accuracy · {comparison?.race_name ?? "Last race"}
-                </p>
-              </div>
-              {comparison?.available && (
-                <div>
-                  <p className="text-2xl font-black text-teal-400">
-                    {comparison.comparison?.map(c => c.actual_driver).join(" · ")}
-                  </p>
-                  <p className="text-zinc-500 text-xs mt-1">
-                    Actual podium · {comparison.race_name}
-                  </p>
-                </div>
-              )}
-              <div>
-                {userScore ? (
-                  <>
-                    <p className="text-2xl font-black text-green-400">
-                      {userScore.total_points} pts
-                    </p>
-                    <p className="text-zinc-500 text-xs mt-1">
-                      Your score · {comparison?.race_name}
-                    </p>
-                  </>
-                ) : user ? (
-                  <>
-                    <p className="text-2xl font-black text-zinc-400">—</p>
-                    <p className="text-zinc-500 text-xs mt-1">
-                      No picks submitted · {comparison?.race_name}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-2xl font-black text-zinc-400">?</p>
-                    <p className="text-zinc-500 text-xs mt-1">
-                      Sign in to see your score
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Upcoming Race Card */}
@@ -250,7 +195,7 @@ export default function Home() {
           )}
 
           {/* Recent Predictions */}
-          {comparison?.available && (
+          {/* {comparison?.available && (
             <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-8 bg-zinc-950 hover:border-red-500 transition-all duration-300">
               <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-2">
@@ -287,11 +232,10 @@ export default function Home() {
                     {comparison.comparison?.map(c => (
                       <div
                         key={c.position}
-                        className={`flex items-center gap-3 rounded-xl px-4 py-2 border ${
-                          c.driver_correct
+                        className={`flex items-center gap-3 rounded-xl px-4 py-2 border ${c.driver_correct
                             ? "bg-green-500/5 border-green-500/20"
                             : "bg-red-500/5 border-red-500/20"
-                        }`}
+                          }`}
                       >
                         <span className="text-zinc-500 font-black text-sm w-6">P{c.position}</span>
                         <span className="text-white font-black text-sm tracking-wider">{c.actual_driver}</span>
@@ -320,7 +264,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
         </>
       )}
