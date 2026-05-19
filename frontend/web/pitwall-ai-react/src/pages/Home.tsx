@@ -4,11 +4,14 @@ import { useState } from "react"
 import {
   getUpcomingRace,
   getWeekendPredictions,
-  getPredictionComparison,
+  // getPredictionComparison,
   getUserPicks,
-  getUserScoreForRound,
+  // getUserScoreForRound,
 } from "../api/pitwall"
-import type { UpcomingRace, PredictionComparison } from "../types"
+import type {
+  UpcomingRace,
+  // PredictionComparison 
+} from "../types"
 import F1Loader from "../components/F1loader"
 import { useCountdown } from "../hooks/customhooks"
 import { useAuth } from "../hooks/useAuth"
@@ -23,11 +26,11 @@ export default function Home() {
     staleTime: 10 * 60 * 1000,
   })
 
-  const { data: comparison, isLoading: comparisonLoading } = useQuery<PredictionComparison>({
-    queryKey: ["comparison"],
-    queryFn: getPredictionComparison,
-    staleTime: 10 * 60 * 1000,
-  })
+  // const { data: comparison, isLoading: comparisonLoading } = useQuery<PredictionComparison>({
+  //   queryKey: ["comparison"],
+  //   queryFn: getPredictionComparison,
+  //   staleTime: 10 * 60 * 1000,
+  // })
 
   const { data: _sessionData } = useQuery({
     queryKey: ["predictions-session", race?.circuit, race?.location],
@@ -44,16 +47,16 @@ export default function Home() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const { data: userScore } = useQuery({
-    queryKey: ["user-score-last", user?.id, comparison?.round],
-    queryFn: () => getUserScoreForRound(user!.id, (comparison as any).round),
-    enabled: !!user && !!(comparison as any)?.round,
-    staleTime: 10 * 60 * 1000,
-    select: (data) => data?.exists ? data.score : null,
-  })
+  // const { data: userScore } = useQuery({
+  //   queryKey: ["user-score-last", user?.id, comparison?.round],
+  //   queryFn: () => getUserScoreForRound(user!.id, (comparison as any).round),
+  //   enabled: !!user && !!(comparison as any)?.round,
+  //   staleTime: 10 * 60 * 1000,
+  //   select: (data) => data?.exists ? data.score : null,
+  // })
 
   const timeLeft = useCountdown(race?.date ?? null, race?.time ?? null)
-  const loading = raceLoading || comparisonLoading
+  const loading = raceLoading;
   const userHasPicks = userPicksData?.exists ?? false
 
   return (
@@ -193,82 +196,8 @@ export default function Home() {
               </Link>
             </div>
           )}
-
-          {/* Recent Predictions */}
-          {/* {comparison?.available && (
-            <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-8 bg-zinc-950 hover:border-red-500 transition-all duration-300">
-              <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-              <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-2">
-                Last Race — {comparison.race_name}
-              </p>
-              <p className="text-zinc-600 text-xs mb-6">
-                Prediction locked after: {comparison.sessions_used?.join(", ")}
-              </p>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-zinc-400 text-sm font-semibold mb-3">
-                    PitWall AI Predicted
-                  </p>
-                  <div className="space-y-2">
-                    {comparison.comparison?.map(c => (
-                      <div
-                        key={c.position}
-                        className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-2"
-                      >
-                        <span className="text-zinc-500 font-black text-sm w-6">P{c.position}</span>
-                        <span className="text-white font-black text-sm tracking-wider">{c.predicted_driver}</span>
-                        <span className="text-zinc-500 text-xs">{c.predicted_team}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-zinc-400 text-sm font-semibold mb-3">
-                    Actual Result
-                  </p>
-                  <div className="space-y-2">
-                    {comparison.comparison?.map(c => (
-                      <div
-                        key={c.position}
-                        className={`flex items-center gap-3 rounded-xl px-4 py-2 border ${c.driver_correct
-                            ? "bg-green-500/5 border-green-500/20"
-                            : "bg-red-500/5 border-red-500/20"
-                          }`}
-                      >
-                        <span className="text-zinc-500 font-black text-sm w-6">P{c.position}</span>
-                        <span className="text-white font-black text-sm tracking-wider">{c.actual_driver}</span>
-                        <span className="text-zinc-500 text-xs flex-1">{c.actual_team}</span>
-                        <span className={`text-xs font-bold ${c.driver_correct ? "text-green-400" : "text-red-400"}`}>
-                          {c.driver_correct ? "correct" : "wrong"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-6 mt-6 pt-4 border-t border-zinc-800">
-                <div>
-                  <p className="text-2xl font-black text-green-400">
-                    {comparison.constructor_correct_count}/{comparison.total}
-                  </p>
-                  <p className="text-zinc-500 text-xs mt-1">Constructor accuracy</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-red-400">
-                    {comparison.driver_correct_count}/{comparison.total}
-                  </p>
-                  <p className="text-zinc-500 text-xs mt-1">Driver accuracy</p>
-                </div>
-              </div>
-            </div>
-          )} */}
-
         </>
       )}
-
     </div>
   )
 }
