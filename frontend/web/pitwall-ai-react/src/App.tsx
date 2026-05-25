@@ -27,7 +27,7 @@ export default function App() {
         <BackendAlert />
         <div className="min-h-screen bg-black text-white">
           <Navbar />
-          <main className="max-w-7xl mx-auto px-6 py-8">
+          <main className="max-w-full mx-auto px-6 py-8">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/race" element={<RaceWeekend />} />

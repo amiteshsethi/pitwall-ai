@@ -22,7 +22,7 @@ export default function Navbar() {
 
   return (
     <nav className="border-b border-zinc-800 bg-black sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="max-w-full mx-auto px-6 py-4 flex items-center justify-between">
 
         <Link to="/" className="flex items-center gap-2">
           <span className="text-red-500 font-black text-xl tracking-widest">PITWALL</span>
@@ -34,11 +34,10 @@ export default function Navbar() {
             <Link
               key={link.path}
               to={link.path}
-              className={`text-sm font-medium transition-colors ${
-                pathname === link.path
+              className={`text-sm font-medium transition-colors ${pathname === link.path
                   ? 'text-red-500'
                   : 'text-zinc-400 hover:text-white'
-              }`}
+                }`}
             >
               {link.label}
             </Link>
