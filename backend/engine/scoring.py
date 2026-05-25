@@ -1,5 +1,5 @@
 from data.supabase_client import get_supabase
-from data.f1_fetcher import get_race_result_by_round
+from data.f1_fetcher import get_race_result_by_round, DRIVER_TEAM_MAP
 
 ROOKIES_2026 = {"ANT", "HAD", "LIN", "BOR", "BEA", "COL"}
 
@@ -11,21 +11,7 @@ SCORING = {
     "constructor_p2": 7,
     "constructor_p3": 5,
     "any_podium_wrong_pos": 3,
-    "rookie_correct": 15,
-}
-
-DRIVER_TEAM_MAP = {
-    "ANT": "Mercedes", "RUS": "Mercedes",
-    "HAM": "Ferrari", "LEC": "Ferrari",
-    "NOR": "McLaren", "PIA": "McLaren",
-    "VER": "Red Bull", "HAD": "Red Bull",
-    "GAS": "Alpine F1 Team", "COL": "Alpine F1 Team",
-    "ALB": "Williams", "SAI": "Williams",
-    "BEA": "Haas F1 Team", "OCO": "Haas F1 Team",
-    "LAW": "RB F1 Team", "LIN": "RB F1 Team",
-    "HUL": "Audi", "BOR": "Audi",
-    "PER": "Cadillac F1 Team", "BOT": "Cadillac F1 Team",
-    "ALO": "Aston Martin", "STR": "Aston Martin",
+    "rookie_correct": 10,
 }
 
 
@@ -152,7 +138,6 @@ def calculate_and_save_scores(year: int, round: int) -> dict:
         if not score:
             continue
 
-        # Check if already scored
         existing = supabase.table("user_scores") \
             .select("id") \
             .eq("user_id", pick["user_id"]) \
@@ -189,3 +174,60 @@ def calculate_and_save_scores(year: int, round: int) -> dict:
         print(f"[INFO] Scored {pick['user_id']} for round {round}: {score['total_points']} pts")
 
     return {"success": True, "scored": scored_count, "race": result["race_name"]}
+
+
+def auto_score_missing_rounds(year: int) -> dict:
+    """
+    Self-healing scorer: checks all completed race rounds against
+    what's already scored in the DB and fills any gaps automatically.
+
+    Called by GET /scores/auto-score to avoid manual curl ops.
+    Safe to call repeatedly — skips already-scored rounds.
+    """
+    from data.f1_fetcher import get_all_completed_rounds
+
+    supabase = get_supabase()
+    completed = get_all_completed_rounds(year)
+
+    if not completed:
+        return {"triggered": 0, "message": "No completed races found from Jolpica"}
+
+    # Get all rounds already present in user_scores
+    existing_scored = supabase.table("user_scores") \
+        .select("round") \
+        .eq("year", year) \
+        .execute()
+
+    already_scored_rounds = {row["round"] for row in (existing_scored.data or [])}
+
+    # Also check which rounds have user_picks to score
+    picks_result = supabase.table("user_picks") \
+        .select("round") \
+        .eq("year", year) \
+        .execute()
+
+    rounds_with_picks = {row["round"] for row in (picks_result.data or [])}
+
+    results = []
+    triggered = 0
+
+    for race in completed:
+        rnd = race["round"]
+        # Only score rounds that have picks but aren't scored yet
+        if rnd in rounds_with_picks and rnd not in already_scored_rounds:
+            print(f"[AUTO-SCORE] Scoring missing round {rnd}: {race['race_name']}")
+            outcome = calculate_and_save_scores(year, rnd)
+            results.append({"round": rnd, **outcome})
+            if outcome.get("success"):
+                triggered += 1
+        else:
+            if rnd in already_scored_rounds:
+                print(f"[AUTO-SCORE] Round {rnd} already scored — skipping")
+
+    return {
+        "year": year,
+        "triggered": triggered,
+        "completed_races_found": len(completed),
+        "rounds_with_picks": len(rounds_with_picks),
+        "details": results,
+    }

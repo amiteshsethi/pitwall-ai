@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 from engine.predictor import (
     generate_weekend_predictions,
@@ -10,11 +12,12 @@ from data.f1_fetcher import (
     get_driver_standings,
     get_constructor_standings,
     get_circuit_lap_record,
-    get_last_race_result
+    get_last_race_result,
+    DRIVER_TEAM_MAP, 
 )
 from data.supabase_client import get_supabase
 
-from engine.scoring import calculate_and_save_scores, score_user_picks
+from engine.scoring import calculate_and_save_scores, score_user_picks, auto_score_missing_rounds
 from data.f1_fetcher import get_race_result_by_round
 
 app = FastAPI(title="PitWall AI", version="1.0.0")
@@ -41,6 +44,7 @@ def upcoming_race():
             detail="Race data temporarily unavailable — Jolpica API may be down. Try again shortly."
         )
     return race
+
 
 @app.get("/predictions")
 def predictions(track: str, location: str, year: int = 2026):
@@ -77,10 +81,7 @@ def predictions(track: str, location: str, year: int = 2026):
 def baseline_predictions(track: str, year: int = 2026):
     """Baseline prediction with no session data."""
     if not track:
-        raise HTTPException(
-            status_code=400,
-            detail="track parameter is required"
-        )
+        raise HTTPException(status_code=400, detail="track parameter is required")
     return generate_race_predictions(track, year)
 
 
@@ -108,10 +109,8 @@ def available_sessions(location: str, year: int = 2026):
         timeout=10
     )
     all_sessions = response.json()
-
     if not isinstance(all_sessions, list):
         raise HTTPException(status_code=503, detail="Could not fetch session data from OpenF1")
-
     weekend_sessions = [
         {
             "session_key": s.get("session_key"),
@@ -122,7 +121,6 @@ def available_sessions(location: str, year: int = 2026):
         for s in all_sessions
         if s.get("location") == location
     ]
-
     return {"location": location, "year": year, "sessions": weekend_sessions}
 
 
@@ -133,48 +131,40 @@ def circuit_lap_record(circuit_id: str):
 
 @app.get("/comparison")
 def prediction_comparison(year: int = 2026):
-    # Start from the latest completed race result
+    """
+    Returns AI prediction vs actual result for the most recently completed race.
+
+    FIX: Now uses get_last_race_result() which hits the /last/results.json
+    Jolpica endpoint — correctly returns the most recent race regardless of
+    round number gaps from cancelled GPs.
+    """
     last_result = get_last_race_result(year)
-    if not last_result:
-        return {"available": False}
+    if not last_result or not last_result.get("top10"):
+        return {"available": False, "reason": "No completed race results found yet"}
 
-    # Try to find an AI prediction for the latest race
+    # Try to find a saved AI prediction for the most recent round
     prediction = get_prediction_by_round(year, last_result["round"])
-    result = last_result
 
-    # If no prediction for the latest race (e.g. data gap),
-    # fall back to the most recent round that has a saved prediction
+    # Fallback: if no prediction saved for the latest race, use the most
+    # recent saved prediction and pair it with that race's actual result
     if not prediction:
         prediction = get_last_saved_prediction()
         if not prediction:
-            return {"available": False}
-        result = get_race_result_by_round(year, prediction["round"])
-        if not result or not result.get("top10"):
-            return {"available": False}
+            return {"available": False, "reason": "No AI prediction saved yet"}
+        # Fetch the actual result for the round this prediction was made for
+        last_result = get_race_result_by_round(year, prediction["round"])
+        if not last_result or not last_result.get("top10"):
+            return {"available": False, "reason": "Race result not yet available for predicted round"}
 
     predicted_top3 = prediction["predicted_podium"][:3]
-    actual_top3 = result["top10"][:3]
-
-    driver_team_map = {
-        "ANT": "Mercedes", "RUS": "Mercedes",
-        "HAM": "Ferrari", "LEC": "Ferrari",
-        "NOR": "McLaren", "PIA": "McLaren",
-        "VER": "Red Bull", "HAD": "Red Bull",
-        "GAS": "Alpine F1 Team", "COL": "Alpine F1 Team",
-        "ALB": "Williams", "SAI": "Williams",
-        "BEA": "Haas F1 Team", "OCO": "Haas F1 Team",
-        "LAW": "RB F1 Team", "LIN": "RB F1 Team",
-        "HUL": "Audi", "BOR": "Audi",
-        "PER": "Cadillac F1 Team", "BOT": "Cadillac F1 Team",
-        "ALO": "Aston Martin", "STR": "Aston Martin",
-    }
+    actual_top3 = last_result["top10"][:3]
 
     comparison = []
     for i, actual in enumerate(actual_top3):
         predicted = predicted_top3[i] if i < len(predicted_top3) else None
         actual_team = actual["team"]
         if actual_team == "Unknown":
-            actual_team = driver_team_map.get(actual["driver_code"], "Unknown")
+            actual_team = DRIVER_TEAM_MAP.get(actual["driver_code"], "Unknown")
 
         predicted_team = predicted["team"] if predicted else "N/A"
         predicted_driver = predicted["driver_code"] if predicted else "N/A"
@@ -191,8 +181,8 @@ def prediction_comparison(year: int = 2026):
 
     return {
         "available": True,
-        "round": result["round"], 
-        "race_name": result["race_name"],
+        "round": last_result["round"],
+        "race_name": last_result["race_name"],
         "predicted_at": prediction["predicted_at"],
         "sessions_used": prediction["sessions_used"],
         "comparison": comparison,
@@ -206,13 +196,11 @@ def prediction_comparison(year: int = 2026):
 def user_stats(user_id: str):
     try:
         supabase = get_supabase()
-
         scores = supabase.table("user_scores") \
             .select("*") \
             .eq("user_id", user_id) \
             .order("scored_at", desc=False) \
             .execute()
-
         picks = supabase.table("user_picks") \
             .select("*") \
             .eq("user_id", user_id) \
@@ -255,7 +243,6 @@ def user_stats(user_id: str):
             "streak": streak,
             "tagline": tagline
         }
-
     except Exception as e:
         print(f"[ERROR] Failed to fetch user stats: {e}")
         return {
@@ -280,7 +267,6 @@ def get_user_picks(user_id: str, round: int):
             .eq("year", 2026) \
             .eq("round", round) \
             .execute()
-
         if result.data and len(result.data) > 0:
             picks = result.data[0]
             return {
@@ -293,7 +279,6 @@ def get_user_picks(user_id: str, round: int):
                 "rookie_pick": picks.get("rookie_pick"),
             }
         return {"exists": False}
-
     except Exception as e:
         print(f"[ERROR] Failed to fetch user picks: {e}")
         return {"exists": False, "error": str(e)}
@@ -306,7 +291,6 @@ def create_user_picks(user_id: str, round: int, pick_data: dict):
         race = get_upcoming_race()
         if not race:
             raise HTTPException(status_code=400, detail="No upcoming race found")
-
         result = supabase.table("user_picks").insert({
             "user_id": user_id,
             "race_name": race["name"],
@@ -318,11 +302,9 @@ def create_user_picks(user_id: str, round: int, pick_data: dict):
             "rookie_pick": pick_data.get("rookie_pick"),
             "is_locked": False,
         }).execute()
-
         if result.data:
             return {"success": True, "id": result.data[0].get("id")}
         raise HTTPException(status_code=500, detail="Failed to create picks")
-
     except Exception as e:
         print(f"[ERROR] Failed to create picks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -338,10 +320,8 @@ def update_user_picks(user_id: str, round: int, pick_data: dict):
             .eq("year", 2026) \
             .eq("round", round) \
             .execute()
-
         if not existing.data:
             raise HTTPException(status_code=404, detail="Picks not found")
-
         result = supabase.table("user_picks") \
             .update({
                 "p1_pick": pick_data.get("p1_pick"),
@@ -351,11 +331,9 @@ def update_user_picks(user_id: str, round: int, pick_data: dict):
             }) \
             .eq("id", existing.data[0]["id"]) \
             .execute()
-
         if result.data:
             return {"success": True}
         raise HTTPException(status_code=500, detail="Failed to update picks")
-
     except Exception as e:
         print(f"[ERROR] Failed to update picks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -371,37 +349,44 @@ def lock_user_picks(user_id: str, round: int):
             .eq("year", 2026) \
             .eq("round", round) \
             .execute()
-
         if not existing.data:
             return {"success": False, "message": "Picks not found"}
-
         result = supabase.table("user_picks") \
             .update({"is_locked": True}) \
             .eq("id", existing.data[0]["id"]) \
             .execute()
-
         return {"success": bool(result.data), "is_locked": True}
-
     except Exception as e:
         print(f"[ERROR] Failed to lock picks: {e}")
         return {"success": False, "message": str(e)}
 
+
 @app.post("/scores/calculate/{round}")
 def calculate_scores(round: int, year: int = 2026):
     """
-    Trigger scoring for all users for a specific round.
+    Manually trigger scoring for all users for a specific round.
     Call this after race results are available.
     """
     result = calculate_and_save_scores(year, round)
     return result
 
 
+@app.get("/scores/auto-score")
+def auto_score(year: int = 2026):
+    """
+    Self-healing endpoint: automatically finds and scores all completed
+    races that have user picks but haven't been scored yet.
+
+    Safe to call any time — idempotent, skips already-scored rounds.
+    Can be triggered from the frontend on page load (with a long stale time)
+    or called via a cron job after each race weekend.
+    """
+    result = auto_score_missing_rounds(year)
+    return result
+
+
 @app.get("/scores/user/{user_id}")
 def get_user_scores(user_id: str):
-    """
-    Fetch all scores for a user across the season.
-    Includes breakdown per race.
-    """
     try:
         supabase = get_supabase()
         scores = supabase.table("user_scores") \
@@ -417,9 +402,6 @@ def get_user_scores(user_id: str):
 
 @app.get("/scores/user/{user_id}/round/{round}")
 def get_user_score_for_round(user_id: str, round: int, year: int = 2026):
-    """
-    Fetch score for a specific user and round.
-    """
     try:
         supabase = get_supabase()
         result = supabase.table("user_scores") \
@@ -435,24 +417,18 @@ def get_user_score_for_round(user_id: str, round: int, year: int = 2026):
         print(f"[ERROR] Failed to fetch score: {e}")
         return {"exists": False}
 
+
 @app.get("/leaderboard/season")
 def season_leaderboard(year: int = 2026):
-    """
-    Global season leaderboard — all users ranked by total points.
-    Joins user_scores with profiles for username and avatar_url.
-    """
     try:
         supabase = get_supabase()
-
         scores = supabase.table("user_scores") \
             .select("user_id, total_points, round, race_name") \
             .eq("year", year) \
             .execute()
-
         if not scores.data:
             return {"leaderboard": []}
 
-        # Aggregate per user
         user_map: dict = {}
         for row in scores.data:
             uid = row["user_id"]
@@ -464,13 +440,11 @@ def season_leaderboard(year: int = 2026):
         if not user_map:
             return {"leaderboard": []}
 
-        # Fetch profiles for all user_ids in one query
         user_ids = list(user_map.keys())
         profiles = supabase.table("profiles") \
             .select("id, username, avatar_url") \
             .in_("id", user_ids) \
             .execute()
-
         profile_map = {p["id"]: p for p in (profiles.data or [])}
 
         leaderboard = []
@@ -488,12 +462,10 @@ def season_leaderboard(year: int = 2026):
             })
 
         leaderboard.sort(key=lambda x: x["total_points"], reverse=True)
-
         for i, entry in enumerate(leaderboard):
             entry["rank"] = i + 1
 
         return {"year": year, "leaderboard": leaderboard}
-
     except Exception as e:
         print(f"[ERROR] Failed to fetch season leaderboard: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch leaderboard")
@@ -501,31 +473,23 @@ def season_leaderboard(year: int = 2026):
 
 @app.get("/leaderboard/race/{round}")
 def race_leaderboard(round: int, year: int = 2026):
-    """
-    Per-race leaderboard — all users ranked by points for a specific round.
-    Joins user_scores with user_picks and profiles.
-    """
     try:
         supabase = get_supabase()
-
         scores = supabase.table("user_scores") \
             .select("user_id, total_points, actual_p1, actual_p2, actual_p3, race_name") \
             .eq("year", year) \
             .eq("round", round) \
             .execute()
-
         if not scores.data:
             return {"round": round, "leaderboard": []}
 
         user_ids = [row["user_id"] for row in scores.data]
-
         picks = supabase.table("user_picks") \
             .select("user_id, p1_pick, p2_pick, p3_pick, rookie_pick") \
             .eq("year", year) \
             .eq("round", round) \
             .in_("user_id", user_ids) \
             .execute()
-
         profiles = supabase.table("profiles") \
             .select("id, username, avatar_url") \
             .in_("id", user_ids) \
@@ -555,15 +519,14 @@ def race_leaderboard(round: int, year: int = 2026):
             })
 
         leaderboard.sort(key=lambda x: x["total_points"], reverse=True)
-
         for i, entry in enumerate(leaderboard):
             entry["rank"] = i + 1
 
         return {"round": round, "year": year, "leaderboard": leaderboard}
-
     except Exception as e:
         print(f"[ERROR] Failed to fetch race leaderboard: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch race leaderboard")
+
 
 @app.get("/leaderboard/scored-rounds")
 def scored_rounds(year: int = 2026):
@@ -574,7 +537,6 @@ def scored_rounds(year: int = 2026):
             .eq("year", year) \
             .order("round", desc=False) \
             .execute()
-
         if not result.data:
             return {"rounds": []}
 
@@ -587,7 +549,6 @@ def scored_rounds(year: int = 2026):
                 rounds.append({"round": r, "name": row.get("race_name") or f"Round {r}"})
 
         return {"year": year, "rounds": rounds}
-
     except Exception as e:
         print(f"[ERROR] Failed to fetch scored rounds: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch scored rounds")
