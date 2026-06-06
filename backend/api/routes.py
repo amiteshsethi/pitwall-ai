@@ -1,6 +1,4 @@
-# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException
-# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 from engine.predictor import (
     generate_weekend_predictions,
@@ -13,7 +11,7 @@ from data.f1_fetcher import (
     get_constructor_standings,
     get_circuit_lap_record,
     get_last_race_result,
-    DRIVER_TEAM_MAP, 
+    DRIVER_TEAM_MAP,  # single source of truth
 )
 from data.supabase_client import get_supabase
 

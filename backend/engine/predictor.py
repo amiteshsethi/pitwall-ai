@@ -1,22 +1,22 @@
-import pandas as pd
-import numpy as np
-
+import math
 from data.f1_fetcher import get_driver_standings, get_constructor_standings
 from data.openf1_fetcher import get_session_by_name, get_session_pace_rankings
 
-# Car performance scale bounds
+# ---------------------------------------------------------------------------
+# Car performance scale
+# ---------------------------------------------------------------------------
 CAR_SCORE_MIN = 60
 CAR_SCORE_MAX = 95
 
-# Pre-season baseline for teams with 0 championship points
 PRESEASON_BASELINE = {
     "Williams": 63,
     "Cadillac F1 Team": 60,
     "Aston Martin": 62,
 }
 
-# Driver skill ratings based on 2025 performance and career stats
-# Scale: 0-100
+# ---------------------------------------------------------------------------
+# Driver skill ratings (2026 baseline, 0–100)
+# ---------------------------------------------------------------------------
 DRIVER_SKILL_2026 = {
     "HAM": 95, "VER": 95, "NOR": 90, "LEC": 94,
     "PIA": 86, "RUS": 85, "SAI": 84, "ALO": 83,
@@ -26,16 +26,75 @@ DRIVER_SKILL_2026 = {
     "PER": 74, "BOT": 72,
 }
 
-# Track specialist bonuses — drivers who historically outperform at a circuit
-TRACK_SPECIALISTS = {
+# ---------------------------------------------------------------------------
+# Circuit catalogue
+#
+# track_type controls two things:
+#   1. softmax temperature  — lower = more separation between drivers
+#   2. qualifying_multiplier — boosts the Qualifying session weight further
+#      for circuits where pole is almost impossible to overturn (Monaco, Baku)
+#
+# Types:
+#   "street"    — Monaco, Baku, Singapore, Las Vegas, Miami, Jeddah
+#                 Overtaking near-impossible; qualifying position is destiny.
+#                 Temperature 6 (sharp), quali multiplier 1.4×
+#   "power"     — Monza, Spa, Silverstone, COTA, Interlagos
+#                 Straights matter; engine+car dominates.
+#                 Temperature 9 (moderate), quali multiplier 1.0×
+#   "technical" — Hungary, Zandvoort, Suzuka, Bahrain
+#                 Driver skill and setup matter most.
+#                 Temperature 8 (default), quali multiplier 1.1×
+#   "balanced"  — Everything else. Default.
+#                 Temperature 8, quali multiplier 1.0×
+# ---------------------------------------------------------------------------
+CIRCUIT_TYPES: dict[str, dict] = {
+    # Street circuits
+    "Circuit de Monaco":            {"type": "street",    "temperature": 6,  "quali_multiplier": 1.4},
+    "Baku City Circuit":            {"type": "street",    "temperature": 6,  "quali_multiplier": 1.4},
+    "Marina Bay Street Circuit":    {"type": "street",    "temperature": 6,  "quali_multiplier": 1.4},
+    "Las Vegas Strip Street Circuit": {"type": "street",  "temperature": 6,  "quali_multiplier": 1.4},
+    "Miami International Autodrome": {"type": "street",   "temperature": 7,  "quali_multiplier": 1.2},
+    "Jeddah Corniche Circuit":      {"type": "street",    "temperature": 7,  "quali_multiplier": 1.2},
+
+    # Power circuits
+    "Autodromo Nazionale Monza":    {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
+    "Circuit de Spa-Francorchamps": {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
+    "Silverstone Circuit":          {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
+    "Circuit of the Americas":      {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
+    "Autodromo Jose Carlos Pace":   {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
+
+    # Technical circuits
+    "Hungaroring":                  {"type": "technical", "temperature": 8,  "quali_multiplier": 1.1},
+    "Circuit Zandvoort":            {"type": "technical", "temperature": 8,  "quali_multiplier": 1.1},
+    "Suzuka Circuit":               {"type": "technical", "temperature": 8,  "quali_multiplier": 1.1},
+    "Bahrain International Circuit": {"type": "technical","temperature": 8,  "quali_multiplier": 1.1},
+    "Shanghai International Circuit": {"type": "technical","temperature": 8, "quali_multiplier": 1.1},
+}
+
+DEFAULT_CIRCUIT = {"type": "balanced", "temperature": 8, "quali_multiplier": 1.0}
+
+# ---------------------------------------------------------------------------
+# Track specialist bonuses
+# ---------------------------------------------------------------------------
+TRACK_SPECIALISTS: dict[str, dict] = {
     "Shanghai International Circuit": {
         "HAM": 5, "VER": 4, "LEC": 3
     },
+    "Circuit de Monaco": {
+        "LEC": 6, "VER": 4, "ALO": 5, "HAM": 3
+    },
+    "Silverstone Circuit": {
+        "HAM": 6, "NOR": 4, "RUS": 3
+    },
+    "Suzuka Circuit": {
+        "VER": 5, "HAM": 4, "ALO": 3
+    },
 }
 
-# Session weights — how much each session influences the prediction
-# Later sessions carry more weight as they are more representative
-SESSION_WEIGHTS = {
+# ---------------------------------------------------------------------------
+# Session weights — base values before circuit-type multiplier is applied
+# ---------------------------------------------------------------------------
+SESSION_WEIGHTS_BASE = {
     "Practice 1":        0.10,
     "Practice 2":        0.10,
     "Practice 3":        0.15,
@@ -44,23 +103,77 @@ SESSION_WEIGHTS = {
     "Qualifying":        0.45,
 }
 
-# All possible sessions in a race weekend in order
 WEEKEND_SESSIONS = [
-    "Practice 1",
-    "Practice 2", 
-    "Practice 3",
-    "Sprint Qualifying",
-    "Sprint",
-    "Qualifying",
+    "Practice 1", "Practice 2", "Practice 3",
+    "Sprint Qualifying", "Sprint", "Qualifying",
 ]
 
+
+def get_circuit_profile(track: str) -> dict:
+    """Return circuit profile, falling back to balanced defaults."""
+    return CIRCUIT_TYPES.get(track, DEFAULT_CIRCUIT)
+
+
+def get_session_weights(track: str) -> dict:
+    """
+    Return session weights adjusted for circuit type.
+    Street circuits boost Qualifying weight by its multiplier,
+    redistributing the difference proportionally from practice sessions.
+    """
+    profile = get_circuit_profile(track)
+    multiplier = profile["quali_multiplier"]
+
+    weights = dict(SESSION_WEIGHTS_BASE)
+
+    if multiplier != 1.0:
+        base_quali = weights["Qualifying"]
+        new_quali = min(base_quali * multiplier, 0.65)  # cap at 65%
+        delta = new_quali - base_quali
+
+        # Redistribute delta away from practice sessions proportionally
+        practice_sessions = ["Practice 1", "Practice 2", "Practice 3"]
+        practice_total = sum(weights[s] for s in practice_sessions)
+        for s in practice_sessions:
+            reduction = delta * (weights[s] / practice_total)
+            weights[s] = max(weights[s] - reduction, 0.02)
+
+        weights["Qualifying"] = new_quali
+
+    return weights
+
+
+# ---------------------------------------------------------------------------
+# Probability conversion
+# ---------------------------------------------------------------------------
+
+def scores_to_probabilities(scores: dict, track: str) -> dict:
+    """
+    Convert raw scores to win probabilities using softmax.
+
+    Temperature is circuit-aware:
+    - Street circuits (Monaco, Baku): temperature=6 → sharper separation
+      because overtaking is nearly impossible, qualifying position dominates
+    - Power circuits (Monza, Spa): temperature=9 → flatter distribution
+      because DRS + slipstream creates real race action
+    - Technical/balanced: temperature=8 → default
+
+    Lower temperature = more winner-takes-all. Higher = more even spread.
+    """
+    temperature = get_circuit_profile(track)["temperature"]
+
+    exp_scores = {d: math.exp(s / temperature) for d, s in scores.items()}
+    total = sum(exp_scores.values())
+    return {
+        driver: round((exp_val / total) * 100, 1)
+        for driver, exp_val in exp_scores.items()
+    }
+
+
+# ---------------------------------------------------------------------------
+# Dynamic car performance
+# ---------------------------------------------------------------------------
+
 def get_dynamic_car_performance(year: int = 2026) -> dict:
-    """
-    Calculate car performance index dynamically
-    from constructor championship standings.
-    Leader gets CAR_SCORE_MAX, last place gets CAR_SCORE_MIN.
-    Teams with 0 points use pre-season baseline estimates.
-    """
     standings = get_constructor_standings(year)
 
     if not standings:
@@ -81,7 +194,6 @@ def get_dynamic_car_performance(year: int = 2026) -> dict:
     for team in standings:
         name = team["team"]
         points = team["points"]
-
         if points == 0:
             car_performance[name] = PRESEASON_BASELINE.get(name, CAR_SCORE_MIN)
         else:
@@ -92,14 +204,11 @@ def get_dynamic_car_performance(year: int = 2026) -> dict:
     return car_performance
 
 
+# ---------------------------------------------------------------------------
+# Pace scoring
+# ---------------------------------------------------------------------------
+
 def get_pace_score(driver_code: str, pace_rankings: list) -> float:
-    """
-    Convert session pace ranking into a 0-100 score.
-    Blends track position with driver skill rating.
-    P1 gets full score, last place gets progressively less.
-    A skilled driver performing poorly gets more credit than
-    an unskilled driver in the same position.
-    """
     total = len(pace_rankings)
     if total == 0:
         return DRIVER_SKILL_2026.get(driver_code, 65)
@@ -107,129 +216,21 @@ def get_pace_score(driver_code: str, pace_rankings: list) -> float:
     for driver in pace_rankings:
         if driver["driver_code"] == driver_code:
             position = driver["position"]
-
-            # P1 = 100, last place = ~50
             pace_position_score = 100 - ((position - 1) / total) * 50
-
-            # Blend 60% session pace with 40% driver skill
             skill = DRIVER_SKILL_2026.get(driver_code, 65)
             blended = (pace_position_score * 0.60) + (skill * 0.40)
             return round(blended, 2)
 
-    # Driver did not set a lap time — fall back to skill rating
     return DRIVER_SKILL_2026.get(driver_code, 65)
 
 
-def calculate_base_score(
-    driver: dict,
-    track: str,
-    car_performance: dict
-) -> float:
-    """
-    Calculate a driver's base score from static factors:
-    - Car performance (25%)
-    - Driver skill (20%)
-    - Points momentum (10%)
-    - Track specialist bonus (10%)
-    """
-    code = driver["driver"]
-    team = driver["team"]
-    points = driver["points"]
-
-    # Car performance (25%) — dynamic from constructor standings
-    car_score = car_performance.get(team, CAR_SCORE_MIN) * 0.25
-
-    # Driver skill (20%)
-    skill_score = DRIVER_SKILL_2026.get(code, 65) * 0.20
-
-    # Points momentum (10%)
-    max_points = 25
-    momentum_score = min((points / max_points) * 100, 100) * 0.10
-
-    # Track specialist bonus (10%)
-    specialists = TRACK_SPECIALISTS.get(track, {})
-    track_bonus = specialists.get(code, 0) * 0.10
-
-    return car_score + skill_score + momentum_score + track_bonus
-
-
-def scores_to_probabilities(scores: dict) -> dict:
-    """Convert raw scores to win probabilities that sum to 100%"""
-    total = sum(scores.values())
-    return {
-        driver: round((score / total) * 100, 1)
-        for driver, score in scores.items()
-    }
-
+# ---------------------------------------------------------------------------
+# Baseline (no session data)
+# ---------------------------------------------------------------------------
 
 def generate_race_predictions(track: str, year: int = 2026) -> dict:
-    """
-    Baseline prediction using car performance, driver skill,
-    points momentum and track specialists.
-    Used when no session data is available yet.
-    """
     standings = get_driver_standings(year)
     car_performance = get_dynamic_car_performance(year)
-
-    raw_scores = {}
-    for driver in standings:
-        score = calculate_base_score(driver, track, car_performance)
-        raw_scores[driver["driver"]] = {
-            "score": score,
-            "driver_name": driver["driver_name"],
-            "team": driver["team"],
-            "points": driver["points"]
-        }
-
-    score_values = {d: v["score"] for d, v in raw_scores.items()}
-    win_probs = scores_to_probabilities(score_values)
-
-    predictions = []
-    for code, data in raw_scores.items():
-        predictions.append({
-            "driver_code": code,
-            "driver_name": data["driver_name"],
-            "team": data["team"],
-            "championship_points": data["points"],
-            "win_probability": win_probs[code],
-            "base_score": round(data["score"], 2)
-        })
-
-    predictions.sort(key=lambda x: x["win_probability"], reverse=True)
-
-    return {
-        "track": track,
-        "session_used": "baseline only",
-        "year": year,
-        "predictions": predictions
-    }
-
-
-def generate_race_predictions_with_session(
-    track: str,
-    session_name: str,
-    location: str,
-    year: int = 2026
-) -> dict:
-    """
-    Full prediction blending all factors:
-    - Car performance          (25%) dynamic from constructor standings
-    - Driver skill             (20%) hardcoded ratings
-    - Live session pace        (25%) from OpenF1
-    - Points momentum          (10%) from driver standings
-    - Track specialist bonus   (10%) historical performance
-    - Pace vs skill alignment  (10%) outperforming expected position
-    """
-    standings = get_driver_standings(year)
-    car_performance = get_dynamic_car_performance(year)
-
-    session = get_session_by_name(session_name, location)
-    pace_rankings = []
-    session_available = False
-
-    if session:
-        pace_rankings = get_session_pace_rankings(session["session_key"])
-        session_available = len(pace_rankings) > 0
 
     raw_scores = {}
     for driver in standings:
@@ -237,56 +238,20 @@ def generate_race_predictions_with_session(
         team = driver["team"]
         points = driver["points"]
 
-        # 1. Car performance (25%)
-        car_score = car_performance.get(team, CAR_SCORE_MIN) * 0.25
-
-        # 2. Driver skill (20%)
-        skill = DRIVER_SKILL_2026.get(code, 65)
-        skill_score = skill * 0.20
-
-        # 3. Points momentum (10%)
-        max_points = 25
-        momentum_score = min((points / max_points) * 100, 100) * 0.10
-
-        # 4. Track specialist bonus (10%)
-        specialists = TRACK_SPECIALISTS.get(track, {})
-        track_bonus = specialists.get(code, 0) * 0.10
-
-        if session_available:
-            # 5. Live session pace blended with skill (25%)
-            pace_score = get_pace_score(code, pace_rankings) * 0.25
-
-            # 6. Pace vs skill alignment bonus (10%)
-            # Rewards drivers outperforming their expected position
-            raw_pace_position = next(
-                (d["position"] for d in pace_rankings
-                 if d["driver_code"] == code), None
-            )
-            if raw_pace_position and code in DRIVER_SKILL_2026:
-                expected_position = sorted(
-                    DRIVER_SKILL_2026.keys(),
-                    key=lambda x: DRIVER_SKILL_2026[x],
-                    reverse=True
-                ).index(code) + 1
-                alignment = max(0, expected_position - raw_pace_position)
-                alignment_score = min(alignment * 2, 20) * 0.10
-            else:
-                alignment_score = 0
-
-            total = (car_score + skill_score + momentum_score +
-                     track_bonus + pace_score + alignment_score)
-        else:
-            total = car_score + skill_score + momentum_score + track_bonus
+        car_score      = car_performance.get(team, CAR_SCORE_MIN) * 0.25
+        skill_score    = DRIVER_SKILL_2026.get(code, 65) * 0.20
+        momentum_score = min((points / 25) * 100, 100) * 0.10
+        track_bonus    = TRACK_SPECIALISTS.get(track, {}).get(code, 0) * 0.10
 
         raw_scores[code] = {
-            "score": total,
+            "score": car_score + skill_score + momentum_score + track_bonus,
             "driver_name": driver["driver_name"],
             "team": team,
             "points": points
         }
 
     score_values = {d: v["score"] for d, v in raw_scores.items()}
-    win_probs = scores_to_probabilities(score_values)
+    win_probs = scores_to_probabilities(score_values, track)
 
     predictions = []
     for code, data in raw_scores.items():
@@ -301,27 +266,31 @@ def generate_race_predictions_with_session(
 
     predictions.sort(key=lambda x: x["win_probability"], reverse=True)
 
+    circuit_profile = get_circuit_profile(track)
     return {
         "track": track,
-        "session_used": session_name if session_available else "baseline only",
+        "circuit_type": circuit_profile["type"],
+        "session_used": "baseline only",
         "year": year,
         "predictions": predictions
     }
 
-def combine_session_pace_scores(
-    driver_code: str,
-    available_sessions: list
-) -> float:
+
+# ---------------------------------------------------------------------------
+# Multi-session pace combiner
+# ---------------------------------------------------------------------------
+
+def combine_session_pace_scores(driver_code: str, available_sessions: list, track: str) -> float:
     """
-    Combine pace scores across all available sessions
-    using weighted average based on SESSION_WEIGHTS.
-    Later sessions carry more weight.
+    Combine pace scores across all available sessions using circuit-aware
+    session weights. Qualifying gets a bigger boost on street circuits.
     """
+    session_weights = get_session_weights(track)
     total_weight = 0
     weighted_score = 0
 
     for session_name, pace_rankings in available_sessions:
-        weight = SESSION_WEIGHTS.get(session_name, 0.10)
+        weight = session_weights.get(session_name, 0.10)
         pace = get_pace_score(driver_code, pace_rankings)
         weighted_score += pace * weight
         total_weight += weight
@@ -331,76 +300,75 @@ def combine_session_pace_scores(
 
     return round(weighted_score / total_weight, 2)
 
+
 def get_all_available_sessions(location: str) -> list:
-    """
-    Automatically fetch all sessions that have happened
-    for a given race weekend location.
-    Returns list of (session_name, pace_rankings) tuples
-    for sessions that have data available.
-    """
+    """Fetch all completed sessions for a race weekend from OpenF1."""
     import requests
-    
+
     available = []
-    
-    response = requests.get(
-        f"https://api.openf1.org/v1/sessions?year={2026}",
-        timeout=10
-    )
-    all_sessions = response.json()
-    
+
+    try:
+        response = requests.get(
+            f"https://api.openf1.org/v1/sessions?year=2026",
+            timeout=10
+        )
+        all_sessions = response.json()
+    except Exception as e:
+        print(f"[WARNING] Could not fetch OpenF1 sessions: {e}")
+        return available
+
     if not isinstance(all_sessions, list):
         print("[WARNING] Could not fetch session list from OpenF1")
         return available
-    
-    # Filter to this race weekend and known session types
-    # Use case-insensitive contains match (consistent with get_session_by_name)
+
     weekend_sessions = [
         s for s in all_sessions
         if location.lower() in s.get("location", "").lower()
         and s.get("session_name") in WEEKEND_SESSIONS
     ]
-    
-    # Sort by date so we process in order
+
     weekend_sessions.sort(key=lambda x: x.get("date_start", ""))
-    
+
     for session in weekend_sessions:
         session_key = session.get("session_key")
         session_name = session.get("session_name")
-        
         rankings = get_session_pace_rankings(session_key)
-        
         if rankings:
             print(f"[INFO] Session available: {session_name} at {location} ({len(rankings)} drivers)")
             available.append((session_name, rankings))
         else:
             print(f"[INFO] No data yet for: {session_name} at {location}")
-    
+
     return available
 
-def generate_weekend_predictions(
-    track: str,
-    location: str,
-    year: int = 2026
-) -> dict:
+
+# ---------------------------------------------------------------------------
+# Master prediction function
+# ---------------------------------------------------------------------------
+
+def generate_weekend_predictions(track: str, location: str, year: int = 2026) -> dict:
     """
     Master prediction function.
-    
-    Automatically pulls ALL available session data for
-    the race weekend and combines them into one prediction.
-    Updates automatically as new sessions complete.
-    
-    Factor weights:
-    - Car performance          (25%) dynamic from constructor standings
-    - Driver skill             (20%) hardcoded ratings
-    - Combined session pace    (25%) weighted average of all sessions
-    - Points momentum          (10%) from driver standings
-    - Track specialist bonus   (10%) historical performance
-    - Pace vs skill alignment  (10%) outperforming expected position
+
+    Automatically pulls ALL available session data and combines them.
+    Circuit-aware in three ways:
+      1. Qualifying weight is boosted for street/technical circuits
+      2. Softmax temperature sharpens on street circuits (Monaco, Baku)
+         so pole-sitter gets a meaningfully higher probability
+      3. Track specialist bonuses are circuit-specific
+
+    Factor weights (before circuit adjustment):
+      Car performance          25% — dynamic from constructor standings
+      Driver skill             20% — hardcoded ratings
+      Combined session pace    25% — weighted avg of all sessions
+      Points momentum          10% — from driver standings
+      Track specialist bonus   10% — historical performance
+      Pace vs skill alignment  10% — outperforming expected position
     """
     standings = get_driver_standings(year)
     car_performance = get_dynamic_car_performance(year)
+    circuit_profile = get_circuit_profile(track)
 
-    # Pull all available sessions automatically
     available_sessions = get_all_available_sessions(location)
     session_available = len(available_sessions) > 0
     sessions_used = [s[0] for s in available_sessions]
@@ -419,25 +387,22 @@ def generate_weekend_predictions(
         skill_score = skill * 0.20
 
         # 3. Points momentum (10%)
-        max_points = 25
-        momentum_score = min((points / max_points) * 100, 100) * 0.10
+        momentum_score = min((points / 25) * 100, 100) * 0.10
 
         # 4. Track specialist bonus (10%)
-        specialists = TRACK_SPECIALISTS.get(track, {})
-        track_bonus = specialists.get(code, 0) * 0.10
+        track_bonus = TRACK_SPECIALISTS.get(track, {}).get(code, 0) * 0.10
 
         if session_available:
-            # 5. Combined session pace (25%)
+            # 5. Combined session pace (25%) — circuit-aware weights
             combined_pace = combine_session_pace_scores(
-                code, available_sessions
+                code, available_sessions, track
             ) * 0.25
 
             # 6. Pace vs skill alignment bonus (10%)
-            # Use the most recent session for alignment check
             latest_rankings = available_sessions[-1][1]
             raw_pace_position = next(
-                (d["position"] for d in latest_rankings
-                 if d["driver_code"] == code), None
+                (d["position"] for d in latest_rankings if d["driver_code"] == code),
+                None
             )
             if raw_pace_position and code in DRIVER_SKILL_2026:
                 expected_position = sorted(
@@ -453,7 +418,6 @@ def generate_weekend_predictions(
             total = (car_score + skill_score + momentum_score +
                      track_bonus + combined_pace + alignment_score)
         else:
-            # No session data yet — baseline prediction only
             total = car_score + skill_score + momentum_score + track_bonus
 
         raw_scores[code] = {
@@ -464,7 +428,9 @@ def generate_weekend_predictions(
         }
 
     score_values = {d: v["score"] for d, v in raw_scores.items()}
-    win_probs = scores_to_probabilities(score_values)
+
+    # Circuit-aware softmax: sharper separation at Monaco/Baku
+    win_probs = scores_to_probabilities(score_values, track)
 
     predictions = []
     for code, data in raw_scores.items():
@@ -482,6 +448,7 @@ def generate_weekend_predictions(
     return {
         "track": track,
         "location": location,
+        "circuit_type": circuit_profile["type"],
         "year": year,
         "sessions_used": sessions_used,
         "session_count": len(sessions_used),

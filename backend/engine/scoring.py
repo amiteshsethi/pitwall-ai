@@ -11,7 +11,7 @@ SCORING = {
     "constructor_p2": 7,
     "constructor_p3": 5,
     "any_podium_wrong_pos": 3,
-    "rookie_correct": 10,
+    "rookie_correct": 15,
 }
 
 
