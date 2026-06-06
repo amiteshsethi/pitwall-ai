@@ -24,21 +24,13 @@ export const getWeekendPredictions = async (
   return data
 }
 
-export const getDriverStandings = async (
-  year: number = 2026
-): Promise<DriverStanding[]> => {
-  const { data } = await api.get('/standings/drivers', {
-    params: { year }
-  })
+export const getDriverStandings = async (year: number = 2026): Promise<DriverStanding[]> => {
+  const { data } = await api.get('/standings/drivers', { params: { year } })
   return data.standings
 }
 
-export const getConstructorStandings = async (
-  year: number = 2026
-): Promise<ConstructorStanding[]> => {
-  const { data } = await api.get('/standings/constructors', {
-    params: { year }
-  })
+export const getConstructorStandings = async (year: number = 2026): Promise<ConstructorStanding[]> => {
+  const { data } = await api.get('/standings/constructors', { params: { year } })
   return data.standings
 }
 
@@ -49,9 +41,9 @@ export const getCircuitLapRecord = async (circuitId: string) => {
 
 export const getSessionStatus = async (location: string): Promise<{ session_count: number }> => {
   const { data } = await api.get('/predictions', {
-    params: { 
+    params: {
       track: 'placeholder',
-      location 
+      location
     }
   })
   return { session_count: data.session_count }
@@ -98,7 +90,7 @@ export const getUserScoreForRound = async (userId: string, round: number) => {
 }
 
 export const getSeasonLeaderboard = async () => {
-  const { data } = await api.get("/leaderboard/season")
+  const { data } = await api.get('/leaderboard/season')
   return data
 }
 
@@ -108,6 +100,17 @@ export const getRaceLeaderboard = async (round: number) => {
 }
 
 export const getScoredRounds = async () => {
-  const { data } = await api.get("/leaderboard/scored-rounds")
+  const { data } = await api.get('/leaderboard/scored-rounds')
+  return data
+}
+
+/**
+ * Triggers the self-healing auto-scorer on the backend.
+ * Finds any completed races with picks that haven't been scored yet and scores them.
+ * Safe to call repeatedly — idempotent, skips already-scored rounds.
+ * Called silently when a user opens the Leaderboard page.
+ */
+export const triggerAutoScore = async (year: number = 2026) => {
+  const { data } = await api.get('/scores/auto-score', { params: { year } })
   return data
 }

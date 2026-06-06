@@ -66,6 +66,9 @@ export default function RaceWeekend() {
 
   if (!race) return <F1Loader type={loaderType} />;
 
+  const drivers = prediction?.predictions ?? []
+  const maxProbability = drivers[0]?.win_probability ?? 100
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -163,7 +166,7 @@ export default function RaceWeekend() {
               <button
                 onClick={() => navigate("/picks")}
                 className="w-full mt-4 bg-red-500 hover:bg-red-600 text-white font-black text-sm py-3 rounded-xl transition-colors duration-300 cursor-pointer"
-                 >
+              >
                 Can you beat the AI?
               </button>
             </div>
@@ -178,21 +181,21 @@ export default function RaceWeekend() {
               <div className="flex flex-wrap gap-2 mb-4">
                 {prediction.session_count > 0
                   ? prediction.sessions_used.map((session) => (
-                      <SessionBadge key={session} session={session} />
-                    ))
+                    <SessionBadge key={session} session={session} />
+                  ))
                   : [
-                      "Car Performance",
-                      "Driver Skill",
-                      "Points Momentum",
-                      "Track History",
-                    ].map((factor) => (
-                      <span
-                        key={factor}
-                        className="text-xs font-semibold px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700"
-                      >
-                        {factor}
-                      </span>
-                    ))}
+                    "Car Performance",
+                    "Driver Skill",
+                    "Points Momentum",
+                    "Track History",
+                  ].map((factor) => (
+                    <span
+                      key={factor}
+                      className="text-xs font-semibold px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700"
+                    >
+                      {factor}
+                    </span>
+                  ))}
               </div>
 
               {/* Status message */}
@@ -279,6 +282,7 @@ export default function RaceWeekend() {
                   key={driver.driver_code}
                   driver={driver}
                   position={i + 1}
+                  maxProbability={maxProbability}
                 />
               ))}
             </div>

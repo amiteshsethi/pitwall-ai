@@ -4,6 +4,7 @@ import ProbabilityBar from './ProbabilityBar'
 interface DriverCardProps {
   driver: Driver
   position: number
+  maxProbability: number
 }
 
 const positionColors: Record<number, string> = {
@@ -12,12 +13,12 @@ const positionColors: Record<number, string> = {
   3: 'text-amber-600',
 }
 
-export default function DriverCard({ driver, position }: DriverCardProps) {
+export default function DriverCard({ driver, position, maxProbability }: DriverCardProps) {
   const posColor = positionColors[position] ?? 'text-zinc-500'
 
   return (
     <div className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 hover:border-zinc-600 transition-all">
-      
+
       {/* Position */}
       <span className={`text-lg font-black w-6 text-center ${posColor}`}>
         {position}
@@ -43,6 +44,7 @@ export default function DriverCard({ driver, position }: DriverCardProps) {
         <ProbabilityBar
           probability={driver.win_probability}
           team={driver.team}
+          maxProbability={maxProbability}
         />
       </div>
 

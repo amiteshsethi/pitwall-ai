@@ -6,6 +6,7 @@ import {
   getSeasonLeaderboard,
   getRaceLeaderboard,
   getScoredRounds,
+  triggerAutoScore,
 } from "../api/pitwall"
 import F1Loader from "../components/F1loader"
 import type { RaceEntry, SeasonEntry } from "../types"
@@ -30,12 +31,9 @@ function Avatar({ url, username }: { url: string | null; username: string }) {
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1)
-    return <span className="text-yellow-400 font-black text-sm w-6 text-center">1</span>
-  if (rank === 2)
-    return <span className="text-zinc-300 font-black text-sm w-6 text-center">2</span>
-  if (rank === 3)
-    return <span className="text-amber-600 font-black text-sm w-6 text-center">3</span>
+  if (rank === 1) return <span className="text-yellow-400 font-black text-sm w-6 text-center">1</span>
+  if (rank === 2) return <span className="text-zinc-300 font-black text-sm w-6 text-center">2</span>
+  if (rank === 3) return <span className="text-amber-600 font-black text-sm w-6 text-center">3</span>
   return <span className="text-zinc-600 font-black text-sm w-6 text-center">{rank}</span>
 }
 
@@ -43,13 +41,10 @@ function PickCell({ pick, actual }: { pick: string | null; actual: string | null
   if (!pick) return <span className="text-zinc-700 text-xs">—</span>
   const correct = pick === actual
   return (
-    <span
-      className={`text-xs font-bold px-2 py-0.5 rounded ${
-        correct
-          ? "bg-green-500/10 text-green-400 border border-green-500/20"
-          : "bg-zinc-800 text-zinc-400"
-      }`}
-    >
+    <span className={`text-xs font-bold px-2 py-0.5 rounded ${correct
+      ? "bg-green-500/10 text-green-400 border border-green-500/20"
+      : "bg-zinc-800 text-zinc-400"
+      }`}>
       {pick}
     </span>
   )
@@ -90,13 +85,7 @@ function BlurOverlay() {
   )
 }
 
-function SeasonTab({
-  currentUserId,
-  isAuthed,
-}: {
-  currentUserId: string | undefined
-  isAuthed: boolean
-}) {
+function SeasonTab({ currentUserId, isAuthed }: { currentUserId: string | undefined; isAuthed: boolean }) {
   const { data, isLoading } = useQuery({
     queryKey: ["leaderboard-season"],
     queryFn: getSeasonLeaderboard,
@@ -112,9 +101,7 @@ function SeasonTab({
     <div className="space-y-4">
       {isAuthed && currentUserEntry && (
         <div className="border border-red-500/40 rounded-2xl p-4 bg-red-500/5">
-          <p className="text-red-500 text-xs font-semibold tracking-widest uppercase mb-3">
-            Your Rank
-          </p>
+          <p className="text-red-500 text-xs font-semibold tracking-widest uppercase mb-3">Your Rank</p>
           <div className="flex items-center gap-4">
             <RankBadge rank={currentUserEntry.rank} />
             <Avatar url={currentUserEntry.avatar_url} username={currentUserEntry.username} />
@@ -151,11 +138,8 @@ function SeasonTab({
             return (
               <div
                 key={entry.user_id}
-                className={`grid grid-cols-12 gap-2 px-5 py-4 items-center transition-colors ${
-                  isCurrentUser
-                    ? "bg-red-500/5 border-l-2 border-red-500"
-                    : "hover:bg-zinc-900/50"
-                }`}
+                className={`grid grid-cols-12 gap-2 px-5 py-4 items-center transition-colors ${isCurrentUser ? "bg-red-500/5 border-l-2 border-red-500" : "hover:bg-zinc-900/50"
+                  }`}
               >
                 <div className="col-span-1"><RankBadge rank={entry.rank} /></div>
                 <div className="col-span-5 flex items-center gap-3">
@@ -177,7 +161,6 @@ function SeasonTab({
               </div>
             )
           })}
-
           {leaderboard.length === 0 && (
             <div className="px-5 py-12 text-center">
               <p className="text-zinc-600 text-sm">No scores yet this season</p>
@@ -191,13 +174,7 @@ function SeasonTab({
   )
 }
 
-function RaceTab({
-  currentUserId,
-  isAuthed,
-}: {
-  currentUserId: string | undefined
-  isAuthed: boolean
-}) {
+function RaceTab({ currentUserId, isAuthed }: { currentUserId: string | undefined; isAuthed: boolean }) {
   const { data: roundsData } = useQuery({
     queryKey: ["scored-rounds"],
     queryFn: getScoredRounds,
@@ -205,7 +182,6 @@ function RaceTab({
   })
 
   const scoredRounds: { round: number; name: string }[] = roundsData?.rounds ?? []
-
   const [selectedRound, setSelectedRound] = useState<number | null>(null)
   const activeRound = selectedRound ?? scoredRounds[scoredRounds.length - 1]?.round
 
@@ -225,16 +201,14 @@ function RaceTab({
           <button
             key={r.round}
             onClick={() => setSelectedRound(r.round)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-              activeRound === r.round
-                ? "bg-red-500 text-white"
-                : "border border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
-            }`}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${activeRound === r.round
+              ? "bg-red-500 text-white"
+              : "border border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+              }`}
           >
             R{r.round} · {r.name}
           </button>
         ))}
-
         {scoredRounds.length === 0 && (
           <p className="text-zinc-600 text-sm">No races scored yet</p>
         )}
@@ -242,9 +216,7 @@ function RaceTab({
 
       {leaderboard.length > 0 && (
         <div className="border border-zinc-800 rounded-xl px-5 py-3 bg-zinc-900 flex items-center gap-6">
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">
-            Actual Result
-          </p>
+          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">Actual Result</p>
           {[
             { label: "P1", value: leaderboard[0]?.actual_p1 },
             { label: "P2", value: leaderboard[0]?.actual_p2 },
@@ -279,19 +251,14 @@ function RaceTab({
               return (
                 <div
                   key={entry.user_id}
-                  className={`grid grid-cols-12 gap-2 px-5 py-4 items-center transition-colors ${
-                    isCurrentUser
-                      ? "bg-red-500/5 border-l-2 border-red-500"
-                      : "hover:bg-zinc-900/50"
-                  }`}
+                  className={`grid grid-cols-12 gap-2 px-5 py-4 items-center transition-colors ${isCurrentUser ? "bg-red-500/5 border-l-2 border-red-500" : "hover:bg-zinc-900/50"
+                    }`}
                 >
                   <div className="col-span-1"><RankBadge rank={entry.rank} /></div>
                   <div className="col-span-3 flex items-center gap-2">
                     <Avatar url={entry.avatar_url} username={entry.username} />
                     <div>
-                      <p className="text-white font-bold text-xs leading-none truncate max-w-[80px]">
-                        {entry.username}
-                      </p>
+                      <p className="text-white font-bold text-xs leading-none truncate max-w-[80px]">{entry.username}</p>
                       {isCurrentUser && <p className="text-red-500 text-xs mt-0.5">You</p>}
                     </div>
                   </div>
@@ -311,7 +278,6 @@ function RaceTab({
               )
             })
           )}
-
           {!isLoading && leaderboard.length === 0 && (
             <div className="px-5 py-12 text-center">
               <p className="text-zinc-600 text-sm">No scores for this round yet</p>
@@ -330,6 +296,16 @@ export default function Leaderboard() {
   const [activeTab, setActiveTab] = useState<"season" | "race">("season")
   const isAuthed = !!user
 
+  // Silently trigger auto-scoring when leaderboard loads.
+  // staleTime of 30min means it fires on first load per session, not every tab switch.
+  // Any completed races with unscored picks get scored automatically in the background.
+  useQuery({
+    queryKey: ["auto-score-trigger"],
+    queryFn: () => triggerAutoScore(),
+    staleTime: 30 * 60 * 1000,
+    retry: false,
+  })
+
   return (
     <div className="space-y-6">
       <div className="border-l-4 border-red-500 pl-5">
@@ -347,11 +323,10 @@ export default function Leaderboard() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-              activeTab === tab
-                ? "bg-red-500 text-white"
-                : "border border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
-            }`}
+            className={`px-5 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer ${activeTab === tab
+              ? "bg-red-500 text-white"
+              : "border border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+              }`}
           >
             {tab === "season" ? "Season Rankings" : "Race-by-Race"}
           </button>

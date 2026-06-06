@@ -1,5 +1,6 @@
 interface ProbabilityBarProps {
   probability: number
+  maxProbability: number
   team: string
 }
 
@@ -17,9 +18,11 @@ const teamColors: Record<string, string> = {
   'Cadillac F1 Team': 'bg-yellow-400',
 }
 
-export default function ProbabilityBar({ probability, team }: ProbabilityBarProps) {
+export default function ProbabilityBar({ probability, maxProbability, team }: ProbabilityBarProps) {
   const color = teamColors[team] ?? 'bg-zinc-400'
-  const width = Math.max(probability * 10, 2)
+  // Scale relative to the leader — leader always fills 100% of the bar,
+  // everyone else is proportional. Min 2% so the bar is always visible.
+  const width = Math.max((probability / maxProbability) * 100, 2)
 
   return (
     <div className="flex items-center gap-3 w-full">
