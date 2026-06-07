@@ -11,12 +11,11 @@ from data.f1_fetcher import (
     get_constructor_standings,
     get_circuit_lap_record,
     get_last_race_result,
-    DRIVER_TEAM_MAP,  # single source of truth
+    get_race_result_by_round,
+    DRIVER_TEAM_MAP,
 )
 from data.supabase_client import get_supabase
-
 from engine.scoring import calculate_and_save_scores, score_user_picks, auto_score_missing_rounds
-from data.f1_fetcher import get_race_result_by_round
 
 app = FastAPI(title="PitWall AI", version="1.0.0")
 
@@ -26,6 +25,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# In-memory prediction cache
+# Preserves last known good prediction during OpenF1 live-session lockouts.
+# Keyed by "{location}_{year}" so each race weekend has its own slot.
+# Resets on server restart — that's fine, Render redeploys are infrequent.
+# ---------------------------------------------------------------------------
+_prediction_cache: dict = {}
 
 
 @app.get("/")
@@ -39,7 +46,7 @@ def upcoming_race():
     if not race:
         raise HTTPException(
             status_code=503,
-            detail="Race data temporarily unavailable — Jolpica API may be down. Try again shortly."
+            detail="Race data temporarily unavailable — Jolpica API may be indexing results. Try again shortly."
         )
     return race
 
@@ -47,9 +54,11 @@ def upcoming_race():
 @app.get("/predictions")
 def predictions(track: str, location: str, year: int = 2026):
     """
-    Main prediction endpoint.
-    Automatically uses all available session data.
-    Auto-saves prediction to Supabase after Qualifying.
+    Main prediction endpoint. Automatically uses all available session data.
+    
+    During OpenF1 live-session lockouts (401), returns the last cached
+    prediction for this race weekend instead of dropping to baseline.
+    Only saves to Supabase when we have real session data.
     """
     if not track or not location:
         raise HTTPException(
@@ -57,20 +66,29 @@ def predictions(track: str, location: str, year: int = 2026):
             detail="track and location parameters are required"
         )
 
+    cache_key = f"{location}_{year}"
     result = generate_weekend_predictions(track, location, year)
 
     if result and result.get("predictions"):
-        upcoming = get_upcoming_race()
-        if upcoming:
-            save_prediction(
-                race_name=upcoming["name"],
-                track=track,
-                location=location,
-                year=year,
-                round=int(upcoming["round"]),
-                sessions_used=result["sessions_used"],
-                predictions=result["predictions"]
-            )
+        if result.get("session_count", 0) > 0:
+            # Real session data — update cache and save to Supabase
+            _prediction_cache[cache_key] = result
+            upcoming = get_upcoming_race()
+            if upcoming:
+                save_prediction(
+                    race_name=upcoming["name"],
+                    track=track,
+                    location=location,
+                    year=year,
+                    round=int(upcoming["round"]),
+                    sessions_used=result["sessions_used"],
+                    predictions=result["predictions"]
+                )
+        elif cache_key in _prediction_cache:
+            # OpenF1 returned nothing (live session lockout or no data yet)
+            # Serve the last good prediction silently
+            print(f"[INFO] No session data from OpenF1 — serving cached prediction for {location}")
+            return _prediction_cache[cache_key]
 
     return result
 
@@ -102,13 +120,21 @@ def constructor_standings(year: int = 2026):
 @app.get("/sessions")
 def available_sessions(location: str, year: int = 2026):
     import requests
-    response = requests.get(
-        f"https://api.openf1.org/v1/sessions?year={year}",
-        timeout=10
-    )
-    all_sessions = response.json()
+    try:
+        response = requests.get(
+            f"https://api.openf1.org/v1/sessions?year={year}",
+            timeout=10
+        )
+        if response.status_code == 401:
+            return {"location": location, "year": year, "sessions": [], "note": "OpenF1 restricted during live session"}
+        response.raise_for_status()
+        all_sessions = response.json()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not fetch session data from OpenF1: {e}")
+
     if not isinstance(all_sessions, list):
-        raise HTTPException(status_code=503, detail="Could not fetch session data from OpenF1")
+        raise HTTPException(status_code=503, detail="Unexpected response from OpenF1")
+
     weekend_sessions = [
         {
             "session_key": s.get("session_key"),
@@ -131,63 +157,63 @@ def circuit_lap_record(circuit_id: str):
 def prediction_comparison(year: int = 2026):
     """
     Returns AI prediction vs actual result for the most recently completed race.
-
-    FIX: Now uses get_last_race_result() which hits the /last/results.json
-    Jolpica endpoint — correctly returns the most recent race regardless of
-    round number gaps from cancelled GPs.
+    Wrapped in a full try/except so Jolpica indexing delays never cause a 500.
     """
-    last_result = get_last_race_result(year)
-    if not last_result or not last_result.get("top10"):
-        return {"available": False, "reason": "No completed race results found yet"}
-
-    # Try to find a saved AI prediction for the most recent round
-    prediction = get_prediction_by_round(year, last_result["round"])
-
-    # Fallback: if no prediction saved for the latest race, use the most
-    # recent saved prediction and pair it with that race's actual result
-    if not prediction:
-        prediction = get_last_saved_prediction()
-        if not prediction:
-            return {"available": False, "reason": "No AI prediction saved yet"}
-        # Fetch the actual result for the round this prediction was made for
-        last_result = get_race_result_by_round(year, prediction["round"])
+    try:
+        last_result = get_last_race_result(year)
         if not last_result or not last_result.get("top10"):
-            return {"available": False, "reason": "Race result not yet available for predicted round"}
+            return {"available": False, "reason": "Race results not yet indexed by Jolpica"}
 
-    predicted_top3 = prediction["predicted_podium"][:3]
-    actual_top3 = last_result["top10"][:3]
+        # Try to find a saved AI prediction for the most recent round
+        prediction = get_prediction_by_round(year, last_result["round"])
 
-    comparison = []
-    for i, actual in enumerate(actual_top3):
-        predicted = predicted_top3[i] if i < len(predicted_top3) else None
-        actual_team = actual["team"]
-        if actual_team == "Unknown":
-            actual_team = DRIVER_TEAM_MAP.get(actual["driver_code"], "Unknown")
+        # Fallback: use the most recent saved prediction and pair with its round's result
+        if not prediction:
+            prediction = get_last_saved_prediction()
+            if not prediction:
+                return {"available": False, "reason": "No AI prediction saved yet"}
+            last_result = get_race_result_by_round(year, prediction["round"])
+            if not last_result or not last_result.get("top10"):
+                return {"available": False, "reason": "Race result not yet available for predicted round"}
 
-        predicted_team = predicted["team"] if predicted else "N/A"
-        predicted_driver = predicted["driver_code"] if predicted else "N/A"
+        predicted_top3 = prediction["predicted_podium"][:3]
+        actual_top3 = last_result["top10"][:3]
 
-        comparison.append({
-            "position": i + 1,
-            "actual_driver": actual["driver_code"],
-            "actual_team": actual_team,
-            "predicted_driver": predicted_driver,
-            "predicted_team": predicted_team,
-            "driver_correct": predicted_driver == actual["driver_code"],
-            "constructor_correct": predicted_team == actual_team,
-        })
+        comparison = []
+        for i, actual in enumerate(actual_top3):
+            predicted = predicted_top3[i] if i < len(predicted_top3) else None
+            actual_team = actual["team"]
+            if actual_team == "Unknown":
+                actual_team = DRIVER_TEAM_MAP.get(actual["driver_code"], "Unknown")
 
-    return {
-        "available": True,
-        "round": last_result["round"],
-        "race_name": last_result["race_name"],
-        "predicted_at": prediction["predicted_at"],
-        "sessions_used": prediction["sessions_used"],
-        "comparison": comparison,
-        "driver_correct_count": sum(1 for c in comparison if c["driver_correct"]),
-        "constructor_correct_count": sum(1 for c in comparison if c["constructor_correct"]),
-        "total": len(comparison)
-    }
+            predicted_team = predicted["team"] if predicted else "N/A"
+            predicted_driver = predicted["driver_code"] if predicted else "N/A"
+
+            comparison.append({
+                "position": i + 1,
+                "actual_driver": actual["driver_code"],
+                "actual_team": actual_team,
+                "predicted_driver": predicted_driver,
+                "predicted_team": predicted_team,
+                "driver_correct": predicted_driver == actual["driver_code"],
+                "constructor_correct": predicted_team == actual_team,
+            })
+
+        return {
+            "available": True,
+            "round": last_result["round"],
+            "race_name": last_result["race_name"],
+            "predicted_at": prediction["predicted_at"],
+            "sessions_used": prediction["sessions_used"],
+            "comparison": comparison,
+            "driver_correct_count": sum(1 for c in comparison if c["driver_correct"]),
+            "constructor_correct_count": sum(1 for c in comparison if c["constructor_correct"]),
+            "total": len(comparison)
+        }
+
+    except Exception as e:
+        print(f"[ERROR] Comparison endpoint failed: {e}")
+        return {"available": False, "reason": "Temporarily unavailable — data still indexing"}
 
 
 @app.get("/user/stats/{user_id}")
@@ -361,10 +387,7 @@ def lock_user_picks(user_id: str, round: int):
 
 @app.post("/scores/calculate/{round}")
 def calculate_scores(round: int, year: int = 2026):
-    """
-    Manually trigger scoring for all users for a specific round.
-    Call this after race results are available.
-    """
+    """Manually trigger scoring for a specific round."""
     result = calculate_and_save_scores(year, round)
     return result
 
@@ -372,12 +395,8 @@ def calculate_scores(round: int, year: int = 2026):
 @app.get("/scores/auto-score")
 def auto_score(year: int = 2026):
     """
-    Self-healing endpoint: automatically finds and scores all completed
-    races that have user picks but haven't been scored yet.
-
-    Safe to call any time — idempotent, skips already-scored rounds.
-    Can be triggered from the frontend on page load (with a long stale time)
-    or called via a cron job after each race weekend.
+    Self-healing endpoint: finds and scores all completed races with
+    unscored picks. Safe to call any time — idempotent.
     """
     result = auto_score_missing_rounds(year)
     return result
@@ -434,9 +453,6 @@ def season_leaderboard(year: int = 2026):
                 user_map[uid] = {"total_points": 0, "races_scored": 0}
             user_map[uid]["total_points"] += row["total_points"]
             user_map[uid]["races_scored"] += 1
-
-        if not user_map:
-            return {"leaderboard": []}
 
         user_ids = list(user_map.keys())
         profiles = supabase.table("profiles") \

@@ -312,13 +312,19 @@ def get_all_available_sessions(location: str) -> list:
             f"https://api.openf1.org/v1/sessions?year=2026",
             timeout=10
         )
+        # 401 = live session in progress, OpenF1 restricts access without paid key.
+        # Return empty so the caller falls back to cache or baseline — don't crash.
+        if response.status_code == 401:
+            print("[INFO] OpenF1 restricted during live session — returning empty sessions")
+            return available
+        response.raise_for_status()
         all_sessions = response.json()
     except Exception as e:
         print(f"[WARNING] Could not fetch OpenF1 sessions: {e}")
         return available
 
     if not isinstance(all_sessions, list):
-        print("[WARNING] Could not fetch session list from OpenF1")
+        print("[WARNING] Unexpected response format from OpenF1")
         return available
 
     weekend_sessions = [

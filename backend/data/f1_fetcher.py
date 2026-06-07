@@ -42,31 +42,6 @@ def get_session_data(year: int, race: str, session_type: str):
         return None
 
 
-def get_driver_standings(year: int):
-    """Fetch current driver championship standings via Jolpica API"""
-    try:
-        url = f"https://api.jolpi.ca/ergast/f1/{year}/driverStandings.json"
-        response = requests.get(url, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        standings = data["MRData"]["StandingsTable"]["StandingsLists"][0]["DriverStandings"]
-        result = []
-        for s in standings:
-            position = int(s["position"]) if s.get("position") else None
-            result.append({
-                "position": position,
-                "driver": s["Driver"]["code"],
-                "driver_name": f"{s['Driver']['givenName']} {s['Driver']['familyName']}",
-                "points": float(s["points"]),
-                "wins": int(s["wins"]),
-                "team": s["Constructors"][0]["name"]
-            })
-        return result
-    except Exception as e:
-        print(f"[ERROR] Failed to fetch driver standings: {e}")
-        return []
-
-
 def get_upcoming_race():
     """Get the next race on the calendar"""
     from datetime import datetime, timezone, timedelta
@@ -75,8 +50,9 @@ def get_upcoming_race():
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
-        races = data["MRData"]["RaceTable"]["Races"]
+        races = data["MRData"]["RaceTable"].get("Races", [])
         now = datetime.now(timezone.utc)
+
         for race in races:
             race_time = race.get("time", "15:00:00Z")
             race_datetime_str = f"{race['date']}T{race_time}"
@@ -100,6 +76,37 @@ def get_upcoming_race():
         return None
 
 
+def get_driver_standings(year: int):
+    """Fetch current driver championship standings via Jolpica API"""
+    try:
+        url = f"https://api.jolpi.ca/ergast/f1/{year}/driverStandings.json"
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        standings_lists = data["MRData"]["StandingsTable"].get("StandingsLists", [])
+        if not standings_lists:
+            print("[INFO] No driver standings available yet")
+            return []
+
+        standings = standings_lists[0]["DriverStandings"]
+        result = []
+        for s in standings:
+            position = int(s["position"]) if s.get("position") else None
+            result.append({
+                "position": position,
+                "driver": s["Driver"]["code"],
+                "driver_name": f"{s['Driver']['givenName']} {s['Driver']['familyName']}",
+                "points": float(s["points"]),
+                "wins": int(s["wins"]),
+                "team": s["Constructors"][0]["name"]
+            })
+        return result
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch driver standings: {e}")
+        return []
+
+
 def get_constructor_standings(year: int):
     """Fetch constructor championship standings via Jolpica API"""
     try:
@@ -107,7 +114,13 @@ def get_constructor_standings(year: int):
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
-        standings = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
+
+        standings_lists = data["MRData"]["StandingsTable"].get("StandingsLists", [])
+        if not standings_lists:
+            print("[INFO] No constructor standings available yet")
+            return []
+
+        standings = standings_lists[0]["ConstructorStandings"]
         return [
             {
                 "position": int(s["position"]),
@@ -125,19 +138,19 @@ def get_constructor_standings(year: int):
 
 def get_circuit_lap_record(circuit_id: str) -> dict:
     """Fetch current lap record for a circuit from Jolpica"""
-    url = f"https://api.jolpi.ca/ergast/f1/circuits/{circuit_id}/fastest/1/results.json?limit=1"
     try:
+        url = f"https://api.jolpi.ca/ergast/f1/circuits/{circuit_id}/fastest/1/results.json?limit=1"
         response = requests.get(url, timeout=10)
+        response.raise_for_status()
         data = response.json()
-        races = data["MRData"]["RaceTable"]["Races"]
+        races = data["MRData"]["RaceTable"].get("Races", [])
         if not races:
             return {}
         result = races[0]["Results"][0]
         return {
             "lap_record": result["FastestLap"]["Time"]["time"],
-            "lap_record_driver": result["Driver"]["givenName"] + " " + result["Driver"]["familyName"],
-            "lap_record_year": races[0]["season"],
-            "team": result["Constructor"]["name"]
+            "lap_record_driver": result["Driver"]["code"],
+            "lap_record_year": races[0]["season"]
         }
     except Exception as e:
         print(f"[ERROR] Could not fetch lap record for {circuit_id}: {e}")
@@ -147,7 +160,8 @@ def get_circuit_lap_record(circuit_id: str) -> dict:
 def _parse_race_results(race: dict) -> dict:
     """
     Internal helper: parse a Jolpica race object into our standard format.
-    Handles missing Constructors gracefully using DRIVER_TEAM_MAP fallback.
+    Uses the module-level DRIVER_TEAM_MAP as fallback — single source of truth,
+    no inline duplicates.
     """
     results = race.get("Results", [])
     top10 = []
@@ -177,21 +191,30 @@ def get_last_race_result(year: int) -> dict:
     """
     Fetch the most recent completed race result from Jolpica.
 
-    FIX: Uses /current/last/results.json which always returns the most
-    recently completed race, regardless of round number gaps caused by
-    cancelled GPs. The old endpoint (?limit=50&offset=0) was returning
-    the first round's results 50 times, not the last race.
+    Uses /last/results.json — always returns the most recently completed
+    race regardless of round number gaps from cancelled GPs.
+
+    NOTE: Do NOT use ?limit=50&offset=0 on the base results endpoint —
+    that paginates within Round 1's results (50 driver entries), not
+    across rounds. /last/ is the correct Jolpica endpoint for this.
     """
     try:
         url = f"https://api.jolpi.ca/ergast/f1/{year}/last/results.json"
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
-        races = data["MRData"]["RaceTable"]["Races"]
+
+        races = data["MRData"]["RaceTable"].get("Races", [])
         if not races:
             print(f"[INFO] No completed races found for {year} yet")
             return {}
-        return _parse_race_results(races[0])
+
+        race = races[0]
+        if not race.get("Results"):
+            print("[INFO] Race results not yet indexed by Jolpica")
+            return {}
+
+        return _parse_race_results(race)
     except Exception as e:
         print(f"[ERROR] Failed to fetch last race result: {e}")
         return {}
@@ -204,10 +227,18 @@ def get_race_result_by_round(year: int, round: int) -> dict:
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
-        races = data["MRData"]["RaceTable"]["Races"]
+
+        races = data["MRData"]["RaceTable"].get("Races", [])
         if not races:
+            print(f"[INFO] No results yet for round {round}")
             return {}
-        return _parse_race_results(races[0])
+
+        race = races[0]
+        if not race.get("Results"):
+            print(f"[INFO] Round {round} results not yet indexed by Jolpica")
+            return {}
+
+        return _parse_race_results(race)
     except Exception as e:
         print(f"[ERROR] Failed to fetch race result for round {round}: {e}")
         return {}
@@ -216,7 +247,7 @@ def get_race_result_by_round(year: int, round: int) -> dict:
 def get_all_completed_rounds(year: int) -> list[dict]:
     """
     Fetch all completed race rounds for the season.
-    Returns list of {round, race_name} dicts, sorted by round.
+    Returns list of {round, race_name} dicts sorted by round.
     Used by the auto-scoring engine to find unscored races.
     """
     try:
@@ -224,10 +255,16 @@ def get_all_completed_rounds(year: int) -> list[dict]:
         response = requests.get(url, timeout=15)
         response.raise_for_status()
         data = response.json()
-        races = data["MRData"]["RaceTable"]["Races"]
+
+        races = data["MRData"]["RaceTable"].get("Races", [])
+        if not races:
+            print(f"[INFO] No completed rounds found for {year}")
+            return []
+
         return [
             {"round": int(r["round"]), "race_name": r["raceName"]}
             for r in races
+            if r.get("Results")  # only include rounds with actual results indexed
         ]
     except Exception as e:
         print(f"[ERROR] Failed to fetch completed rounds: {e}")
