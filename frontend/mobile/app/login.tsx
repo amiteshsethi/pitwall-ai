@@ -60,10 +60,13 @@ const handleGoogleAuth = async () => {
   setGoogleLoading(true)
   setError(null)
   try {
+    // For Expo Go: don't specify scheme, let it auto-detect
+    // For dev build: will use the 'pitwall' scheme from app.json
     const redirectUri = makeRedirectUri({ 
-      scheme: "pitwall",
       path: "auth/callback"
     })
+
+    console.log("🔗 Redirect URI:", redirectUri)
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -80,6 +83,8 @@ const handleGoogleAuth = async () => {
       data.url, 
       redirectUri  // this tells the browser what URL to watch for
     )
+
+    console.log("🌐 Browser result:", result)
 
     if (result.type === "success" && result.url) {
       const url = new URL(result.url)
