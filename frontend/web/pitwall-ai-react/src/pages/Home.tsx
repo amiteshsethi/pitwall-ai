@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import {
   getUpcomingRace,
-  getWeekendPredictions,
+  // getWeekendPredictions,
   getPredictionComparison,
   getUserPicks,
   getUserScoreForRound,
@@ -16,6 +17,52 @@ import F1Loader from "../components/F1loader"
 import { useCountdown } from "../hooks/customhooks"
 import { useAuth } from "../hooks/useAuth"
 
+// ---------------------------------------------------------------------------
+// Gap detection
+// upcoming=R7, comparison=R5 → Monaco (R6) just finished, not indexed yet
+// ---------------------------------------------------------------------------
+function isIndexingGap(upcomingRound?: string, comparisonRound?: number): boolean {
+  if (!upcomingRound || !comparisonRound) return false
+  return parseInt(upcomingRound) - comparisonRound > 1
+}
+
+// ---------------------------------------------------------------------------
+// Shared banner — used on Home AND Leaderboard
+// ---------------------------------------------------------------------------
+export function ProcessingBanner({ raceName }: { raceName: string }) {
+  return (
+    <div className="border border-amber-500/30 rounded-2xl p-6 bg-amber-500/5">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 mt-1">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
+          </span>
+        </div>
+        <div className="flex-1">
+          <p className="text-amber-400 font-black text-sm tracking-widest uppercase mb-1">
+            Processing Race Results
+          </p>
+          <p className="text-white font-bold text-lg mb-1">
+            {raceName} results are being indexed
+          </p>
+          <p className="text-zinc-400 text-sm">
+            Our AI is crunching the numbers. Scores and comparisons will appear
+            automatically once the official results are indexed — usually within
+            a few hours of the race finishing.
+          </p>
+        </div>
+        <p className="flex-shrink-0 text-amber-500/60 text-xs font-semibold tracking-widest uppercase">
+          Check back soon
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Home
+// ---------------------------------------------------------------------------
 export default function Home() {
   const { user } = useAuth()
   const [loaderType] = useState(() => Math.floor(Math.random() * 4) + 1)
@@ -32,14 +79,6 @@ export default function Home() {
     staleTime: 10 * 60 * 1000,
   })
 
-  const { data: _sessionData } = useQuery({
-    queryKey: ["predictions-session", race?.circuit, race?.location],
-    queryFn: () => getWeekendPredictions(race!.circuit, race!.location),
-    enabled: !!race,
-    staleTime: 5 * 60 * 1000,
-    select: (data) => data.session_count,
-  })
-
   const { data: userPicksData } = useQuery({
     queryKey: ["user-picks", user?.id, race?.round],
     queryFn: () => getUserPicks(user!.id, parseInt(race!.round)),
@@ -48,7 +87,7 @@ export default function Home() {
   })
 
   const { data: userScore } = useQuery({
-    queryKey: ["user-score-last", user?.id, comparison?.round],
+    queryKey: ["user-score-last", user?.id, (comparison as any)?.round],
     queryFn: () => getUserScoreForRound(user!.id, (comparison as any).round),
     enabled: !!user && !!(comparison as any)?.round,
     staleTime: 10 * 60 * 1000,
@@ -56,18 +95,19 @@ export default function Home() {
   })
 
   const timeLeft = useCountdown(race?.date ?? null, race?.time ?? null)
-  const loading = raceLoading;
   const userHasPicks = userPicksData?.exists ?? false
+
+  const inGap = isIndexingGap(race?.round, (comparison as any)?.round)
+  const upcomingRound = race?.round ? parseInt(race.round) : undefined
+  const justFinishedLabel = inGap && upcomingRound ? `Round ${upcomingRound - 1}` : null
 
   return (
     <div className="space-y-4">
 
       {/* Hero */}
-      <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-10 bg-zinc-950 hover:border-red-500 transition-all duration-300 cursor-pointer">
+      <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-10 bg-zinc-950 hover:border-red-500 transition-all duration-300">
         <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        <p className="text-red-500 text-sm font-semibold tracking-widest uppercase mb-3">
-          Race Predictions
-        </p>
+        <p className="text-red-500 text-sm font-semibold tracking-widest uppercase mb-3">Race Predictions</p>
         <h1 className="text-5xl font-black text-white mb-4">
           Your Pitwall Super AI.<br />
           <span className="text-zinc-500">Before the lights go out.</span>
@@ -77,42 +117,33 @@ export default function Home() {
           ratings and 2026 car performance index. Updated after every FP, Sprint
           and Qualifying session.
         </p>
-        <Link
-          to="/race"
-          className="inline-block mt-8 bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-3 rounded-xl transition-colors"
-        >
+        <Link to="/race"
+          className="inline-block mt-8 bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-3 rounded-xl transition-colors">
           View Race Predictions
         </Link>
       </div>
 
-      {/* Loader */}
-      {loading && <F1Loader type={loaderType} />}
+      {raceLoading && <F1Loader type={loaderType} />}
 
-      {!loading && (
+      {!raceLoading && (
         <>
+          {/* Post-race indexing gap banner */}
+          {inGap && justFinishedLabel && (
+            <ProcessingBanner raceName={justFinishedLabel} />
+          )}
 
           {/* Can You Beat the AI */}
-          <div
-            className="group relative overflow-hidden border border-red-500/30 hover:border-red-500 rounded-2xl p-8 transition-all duration-300 cursor-pointer"
-            style={{
-              background: "radial-gradient(ellipse at top right, #3d0a0a 0%, #4e1414 60%)",
-            }}
-          >
+          <div className="group relative overflow-hidden border border-red-500/30 hover:border-red-500 rounded-2xl p-8 transition-all duration-300"
+            style={{ background: "radial-gradient(ellipse at top right, #3d0a0a 0%, #4e1414 60%)" }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-red-500 text-xs font-semibold tracking-widest uppercase mb-2">
-                  New Challenge
-                </p>
-                <h2 className="text-3xl font-black text-white mb-2">
-                  Can You Beat the SUPER Powered F1-AI?
-                </h2>
+                <p className="text-red-500 text-xs font-semibold tracking-widest uppercase mb-2">New Challenge</p>
+                <h2 className="text-3xl font-black text-white mb-2">Can You Beat the SUPER Powered F1-AI?</h2>
                 <p className="text-zinc-400 text-sm max-w-lg">
-                  PitWall AI predicted the correct constructor for every podium
-                  position in the last GP. Think you can do better? Submit your
-                  picks before qualifying locks and find out.
+                  PitWall AI predicted the correct constructor for every podium position in the last GP.
+                  Think you can do better? Submit your picks before qualifying locks and find out.
                 </p>
               </div>
-
               <div className="flex-shrink-0 ml-8">
                 {user ? (
                   <Link to="/picks" className="flex flex-col items-center gap-1">
@@ -120,9 +151,7 @@ export default function Home() {
                       {userHasPicks ? "View My Picks" : "Submit Picks"}
                     </div>
                     <p className="text-zinc-600 text-xs">
-                      {userHasPicks
-                        ? "Picks submitted for this race"
-                        : `Logged in as ${user.email?.split("@")[0]}`}
+                      {userHasPicks ? "Picks submitted for this race" : `Logged in as ${user.email?.split("@")[0]}`}
                     </p>
                   </Link>
                 ) : (
@@ -130,97 +159,91 @@ export default function Home() {
                     <div className="bg-red-500 hover:bg-red-600 text-white font-black px-8 py-4 rounded-xl transition-colors text-lg">
                       Sign In to Predict
                     </div>
-                    <p className="text-zinc-600 text-xs">
-                      Free · No credit card needed
-                    </p>
+                    <p className="text-zinc-600 text-xs">Free · No credit card needed</p>
                   </Link>
                 )}
               </div>
             </div>
             <div className="flex gap-8 mt-6 pt-6 border-t border-zinc-800">
-              <div>
-                <p className="text-2xl font-black text-red-500">
-                  {comparison?.constructor_correct_count ?? "?"}/{comparison?.total ?? 3}
-                </p>
-                <p className="text-zinc-500 text-xs mt-1">
-                  AI constructor accuracy · {comparison?.race_name ?? "Last race"}
-                </p>
-              </div>
-              <div>
-                <p className="text-2xl font-black text-red-500">
-                  {comparison?.driver_correct_count ?? "?"}/{comparison?.total ?? 3}
-                </p>
-                <p className="text-zinc-500 text-xs mt-1">
-                  AI driver accuracy · {comparison?.race_name ?? "Last race"}
-                </p>
-              </div>
-              {comparison?.available && (
-                <div>
-                  <p className="text-2xl font-black text-teal-400">
-                    {comparison.comparison?.map(c => c.actual_driver).join(" · ")}
-                  </p>
-                  <p className="text-zinc-500 text-xs mt-1">
-                    Actual podium · {comparison.race_name}
-                  </p>
-                </div>
+              {inGap ? (
+                // Gap state — stale data, show placeholder
+                <>
+                  <div>
+                    <p className="text-2xl font-black text-amber-500">—</p>
+                    <p className="text-zinc-500 text-xs mt-1">AI accuracy · results pending</p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-400 text-xs">Last confirmed: {comparison?.race_name ?? "—"}</p>
+                    <p className="text-zinc-600 text-xs mt-0.5">Most recent race indexing in progress</p>
+                  </div>
+                </>
+              ) : (
+                // Normal state
+                <>
+                  <div>
+                    <p className="text-2xl font-black text-red-500">
+                      {comparison?.constructor_correct_count ?? "?"}/{comparison?.total ?? 3}
+                    </p>
+                    <p className="text-zinc-500 text-xs mt-1">
+                      AI constructor accuracy · {comparison?.race_name ?? "Last race"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-red-500">
+                      {comparison?.driver_correct_count ?? "?"}/{comparison?.total ?? 3}
+                    </p>
+                    <p className="text-zinc-500 text-xs mt-1">
+                      AI driver accuracy · {comparison?.race_name ?? "Last race"}
+                    </p>
+                  </div>
+                  {comparison?.available && (
+                    <div>
+                      <p className="text-2xl font-black text-teal-400">
+                        {comparison.comparison?.map(c => c.actual_driver).join(" · ")}
+                      </p>
+                      <p className="text-zinc-500 text-xs mt-1">Actual podium · {comparison.race_name}</p>
+                    </div>
+                  )}
+                  <div>
+                    {userScore ? (
+                      <>
+                        <p className="text-2xl font-black text-green-400">{userScore.total_points} pts</p>
+                        <p className="text-zinc-500 text-xs mt-1">Your score · {comparison?.race_name}</p>
+                      </>
+                    ) : user ? (
+                      <>
+                        <p className="text-2xl font-black text-zinc-400">—</p>
+                        <p className="text-zinc-500 text-xs mt-1">No picks submitted · {comparison?.race_name}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-2xl font-black text-zinc-400">?</p>
+                        <p className="text-zinc-500 text-xs mt-1">Sign in to see your score</p>
+                      </>
+                    )}
+                  </div>
+                </>
               )}
-              <div>
-                {userScore ? (
-                  <>
-                    <p className="text-2xl font-black text-green-400">
-                      {userScore.total_points} pts
-                    </p>
-                    <p className="text-zinc-500 text-xs mt-1">
-                      Your score · {comparison?.race_name}
-                    </p>
-                  </>
-                ) : user ? (
-                  <>
-                    <p className="text-2xl font-black text-zinc-400">—</p>
-                    <p className="text-zinc-500 text-xs mt-1">
-                      No picks submitted · {comparison?.race_name}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-2xl font-black text-zinc-400">?</p>
-                    <p className="text-zinc-500 text-xs mt-1">
-                      Sign in to see your score
-                    </p>
-                  </>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Upcoming Race Card */}
+          {/* Upcoming Race */}
           {race && (
-            <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-8 bg-zinc-950 hover:border-red-500 transition-all duration-300 cursor-pointer">
+            <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-8 bg-zinc-950 hover:border-red-500 transition-all duration-300">
               <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-              <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-4">
-                Next Race
-              </p>
-
+              <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-4">Next Race</p>
               <div className="flex items-start justify-between mb-8">
                 <div>
-                  <h2 className="text-3xl font-black text-white mb-1">
-                    {race.name}
-                  </h2>
+                  <h2 className="text-3xl font-black text-white mb-1">{race.name}</h2>
                   <p className="text-zinc-400 text-sm">{race.circuit}</p>
-                  <p className="text-zinc-500 text-sm mt-1">
-                    {race.country} — Round {race.round}
-                  </p>
+                  <p className="text-zinc-500 text-sm mt-1">{race.country} — Round {race.round}</p>
                   <p className="text-zinc-600 text-xs mt-2">
                     {new Date(race.date).toLocaleDateString("en-GB", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
+                      weekday: "long", day: "numeric", month: "long", year: "numeric"
                     })}
                   </p>
                 </div>
               </div>
-
               <div className="grid grid-cols-4 gap-4 mb-8">
                 {[
                   { label: "Days", value: timeLeft.days },
@@ -228,31 +251,23 @@ export default function Home() {
                   { label: "Minutes", value: timeLeft.minutes },
                   { label: "Seconds", value: timeLeft.seconds },
                 ].map(({ label, value }) => (
-                  <div
-                    key={label}
-                    className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center"
-                  >
+                  <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center">
                     <p className="text-4xl font-black text-red-500 tabular-nums">
                       {String(value).padStart(2, "0")}
                     </p>
-                    <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mt-1">
-                      {label}
-                    </p>
+                    <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mt-1">{label}</p>
                   </div>
                 ))}
               </div>
-
-              <Link
-                to="/race"
-                className="inline-block border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-semibold px-6 py-2 rounded-xl transition-colors text-sm"
-              >
+              <Link to="/race"
+                className="inline-block border border-red-500 text-red-500 hover:bg-red-500 hover:text-white font-semibold px-6 py-2 rounded-xl transition-colors text-sm">
                 See Predictions for this Race
               </Link>
             </div>
           )}
 
-          {/* Recent Predictions */}
-          {comparison?.available && (
+          {/* Last Race Comparison — hidden during gap, muted if stale */}
+          {comparison?.available && !inGap && (
             <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-8 bg-zinc-950 hover:border-red-500 transition-all duration-300">
               <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-2">
@@ -261,18 +276,12 @@ export default function Home() {
               <p className="text-zinc-600 text-xs mb-6">
                 Prediction locked after: {comparison.sessions_used?.join(", ")}
               </p>
-
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <p className="text-zinc-400 text-sm font-semibold mb-3">
-                    PitWall AI Predicted
-                  </p>
+                  <p className="text-zinc-400 text-sm font-semibold mb-3">PitWall AI Predicted</p>
                   <div className="space-y-2">
                     {comparison.comparison?.map(c => (
-                      <div
-                        key={c.position}
-                        className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-2"
-                      >
+                      <div key={c.position} className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-2">
                         <span className="text-zinc-500 font-black text-sm w-6">P{c.position}</span>
                         <span className="text-white font-black text-sm tracking-wider">{c.predicted_driver}</span>
                         <span className="text-zinc-500 text-xs">{c.predicted_team}</span>
@@ -280,20 +289,14 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
-
                 <div>
-                  <p className="text-zinc-400 text-sm font-semibold mb-3">
-                    Actual Result
-                  </p>
+                  <p className="text-zinc-400 text-sm font-semibold mb-3">Actual Result</p>
                   <div className="space-y-2">
                     {comparison.comparison?.map(c => (
-                      <div
-                        key={c.position}
+                      <div key={c.position}
                         className={`flex items-center gap-3 rounded-xl px-4 py-2 border ${c.driver_correct
                           ? "bg-green-500/5 border-green-500/20"
-                          : "bg-red-500/5 border-red-500/20"
-                          }`}
-                      >
+                          : "bg-red-500/5 border-red-500/20"}`}>
                         <span className="text-zinc-500 font-black text-sm w-6">P{c.position}</span>
                         <span className="text-white font-black text-sm tracking-wider">{c.actual_driver}</span>
                         <span className="text-zinc-500 text-xs flex-1">{c.actual_team}</span>
@@ -305,18 +308,13 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-
               <div className="flex gap-6 mt-6 pt-4 border-t border-zinc-800">
                 <div>
-                  <p className="text-2xl font-black text-green-400">
-                    {comparison.constructor_correct_count}/{comparison.total}
-                  </p>
+                  <p className="text-2xl font-black text-green-400">{comparison.constructor_correct_count}/{comparison.total}</p>
                   <p className="text-zinc-500 text-xs mt-1">Constructor accuracy</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-black text-red-400">
-                    {comparison.driver_correct_count}/{comparison.total}
-                  </p>
+                  <p className="text-2xl font-black text-red-400">{comparison.driver_correct_count}/{comparison.total}</p>
                   <p className="text-zinc-500 text-xs mt-1">Driver accuracy</p>
                 </div>
               </div>
