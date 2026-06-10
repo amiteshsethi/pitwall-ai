@@ -107,20 +107,272 @@ export default function Home() {
       {/* Hero */}
       <div className="group relative overflow-hidden border border-zinc-800 rounded-2xl p-10 bg-zinc-950 hover:border-red-500 transition-all duration-300">
         <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-        <p className="text-red-500 text-sm font-semibold tracking-widest uppercase mb-3">Race Predictions</p>
-        <h1 className="text-5xl font-black text-white mb-4">
-          Your Pitwall Super AI.<br />
-          <span className="text-zinc-500">Before the lights go out.</span>
-        </h1>
-        <p className="text-zinc-400 text-lg max-w-xl">
-          Real-time F1 predictions powered by live session data, driver skill
-          ratings and 2026 car performance index. Updated after every FP, Sprint
-          and Qualifying session.
-        </p>
-        <Link to="/race"
-          className="inline-block mt-8 bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-3 rounded-xl transition-colors">
-          View Race Predictions
-        </Link>
+        
+        <div className="flex items-center justify-between">
+          {/* Left side - Text content */}
+          <div className="flex-1 max-w-2xl">
+            <p className="text-red-500 text-sm font-semibold tracking-widest uppercase mb-3">Race Predictions</p>
+            <h1 className="text-5xl font-black text-white mb-4">
+              Your Pitwall <span className="relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-red-500 via-red-400 to-red-500 bg-clip-text text-transparent animate-pulse">
+                  Super AI
+                </span>
+                <span className="absolute inset-0 blur-xl bg-red-500/50 animate-pulse" style={{ animationDuration: '2s' }} />
+              </span>.<br />
+              <span className="text-zinc-500">Before the lights go out.</span>
+            </h1>
+            <p className="text-zinc-400 text-lg max-w-xl">
+              Real-time F1 predictions powered by live session data, driver skill
+              ratings and 2026 car performance index. Updated after every FP, Sprint
+              and Qualifying session.
+            </p>
+            <Link to="/race"
+              className="inline-block mt-8 bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-3 rounded-xl transition-colors">
+              View Race Predictions
+            </Link>
+          </div>
+
+          {/* Right side - Advanced AI Orb */}
+          <div className="relative flex-shrink-0 w-80 h-80 ml-8">
+            {/* Outermost energy wave rings */}
+            <div className="absolute inset-0 rounded-full border border-red-500/20 animate-ping" style={{ animationDuration: '4s' }} />
+            <div className="absolute inset-2 rounded-full border border-red-400/15 animate-ping" style={{ animationDuration: '5s', animationDelay: '0.5s' }} />
+            
+            {/* Rotating hexagonal patterns */}
+            <div className="absolute inset-8 animate-spin" style={{ animationDuration: '20s' }}>
+              {[0, 60, 120, 180, 240, 300].map((angle) => (
+                <div
+                  key={angle}
+                  className="absolute top-1/2 left-1/2 w-24 h-0.5 bg-gradient-to-r from-transparent via-red-500/30 to-transparent"
+                  style={{ transform: `translate(-50%, -50%) rotate(${angle}deg)` }}
+                />
+              ))}
+            </div>
+
+            {/* Outer orbital ring with multiple particles */}
+            <div className="absolute inset-10 rounded-full border border-red-500/30 animate-spin" style={{ animationDuration: '10s' }}>
+              {[0, 90, 180, 270].map((angle) => (
+                <div
+                  key={`outer-${angle}`}
+                  className="absolute w-2 h-2 bg-red-500 rounded-full shadow-lg shadow-red-500/50"
+                  style={{
+                    top: '50%',
+                    left: '50%',
+                    transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(140px)`
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Counter-rotating middle ring */}
+            <div className="absolute inset-16 rounded-full border-2 border-red-400/40 animate-spin" style={{ animationDuration: '8s', animationDirection: 'reverse' }}>
+              {[45, 135, 225, 315].map((angle) => (
+                <div
+                  key={`middle-${angle}`}
+                  className="absolute w-1.5 h-1.5 bg-red-400 rounded-full"
+                  style={{
+                    top: '50%',
+                    left: '50%',
+                    transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(95px)`
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Data stream particles - fast orbit */}
+            <div className="absolute inset-20 animate-spin" style={{ animationDuration: '3s' }}>
+              {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((angle) => (
+                <div
+                  key={`data-${angle}`}
+                  className="absolute w-1 h-1 bg-red-300 rounded-full opacity-60"
+                  style={{
+                    top: '50%',
+                    left: '50%',
+                    transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(70px)`
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Pulsing energy layers */}
+            <div className="absolute inset-24 rounded-full bg-gradient-to-br from-red-500/40 via-red-600/20 to-transparent animate-pulse" style={{ animationDuration: '3s' }} />
+            <div className="absolute inset-28 rounded-full bg-gradient-to-br from-red-400/30 via-red-500/15 to-transparent animate-pulse" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
+
+            {/* Rotating gear assembly - Outer gear */}
+            <div className="absolute inset-32 animate-spin" style={{ animationDuration: '15s', animation: 'spin 15s linear infinite, pulse 2s ease-in-out infinite' }}>
+              {/* Realistic gear teeth - 16 teeth */}
+              {Array.from({ length: 16 }).map((_, i) => {
+                const angle = (i * 360) / 16
+                return (
+                  <div
+                    key={`tooth-${i}`}
+                    className="absolute top-1/2 left-1/2"
+                    style={{
+                      transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-48px)`,
+                      transformOrigin: 'center'
+                    }}
+                  >
+                    {/* Tooth with trapezoidal shape */}
+                    <div className="relative w-5 h-8 shadow-2xl" 
+                         style={{ 
+                           clipPath: 'polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)',
+                           background: 'linear-gradient(to bottom, #dc2626 0%, #b91c1c 40%, #991b1b 70%, #7f1d1d 100%)',
+                           boxShadow: 'inset -2px 0 4px rgba(0,0,0,0.6), inset 2px 0 4px rgba(255,100,100,0.3), 0 4px 8px rgba(220, 38, 38, 0.4)'
+                         }}>
+                      {/* Metallic shine */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-300/40 to-transparent" />
+                      {/* Left edge highlight */}
+                      <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-red-300/60 via-red-400/40 to-transparent" />
+                      {/* Right edge shadow */}
+                      <div className="absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-black/40 via-black/30 to-transparent" />
+                      {/* Top highlight */}
+                      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-red-200/30 to-transparent" />
+                    </div>
+                  </div>
+                )
+              })}
+              
+              {/* Outer gear body - metallic red rim */}
+              <div className="absolute inset-0 rounded-full border-[6px] shadow-2xl" 
+                   style={{ 
+                     background: 'radial-gradient(circle at 30% 30%, #dc2626 0%, #b91c1c 20%, #991b1b 40%, #7f1d1d 70%, #450a0a 100%)',
+                     borderColor: '#7f1d1d',
+                     boxShadow: 'inset 0 0 30px rgba(0,0,0,0.7), inset -5px -5px 20px rgba(220, 38, 38, 0.3), inset 5px 5px 20px rgba(0,0,0,0.5), 0 0 40px rgba(220, 38, 38, 0.5)'
+                   }}>
+                {/* Inner rim detail */}
+                <div className="absolute inset-3 rounded-full border-2 border-red-800/60" />
+                {/* Circular grooves */}
+                <div className="absolute inset-4 rounded-full border border-red-700/40" />
+                <div className="absolute inset-5 rounded-full border border-red-600/30" />
+                {/* Highlight arc */}
+                <div className="absolute inset-2 rounded-full" style={{ background: 'radial-gradient(circle at 25% 25%, rgba(252, 165, 165, 0.2) 0%, transparent 50%)' }} />
+              </div>
+            </div>
+
+            {/* Counter-rotating inner gear */}
+            <div className="absolute inset-36 animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse', animation: 'spin 12s linear infinite reverse, pulse 2.3s ease-in-out infinite' }}>
+              {/* Realistic inner gear teeth - 12 teeth */}
+              {Array.from({ length: 12 }).map((_, i) => {
+                const angle = (i * 360) / 12
+                return (
+                  <div
+                    key={`inner-tooth-${i}`}
+                    className="absolute top-1/2 left-1/2"
+                    style={{
+                      transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-33px)`
+                    }}
+                  >
+                    {/* Smaller trapezoidal tooth */}
+                    <div className="relative w-4 h-6 shadow-xl"
+                         style={{ 
+                           clipPath: 'polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%)',
+                           background: 'linear-gradient(to bottom, #ef4444 0%, #dc2626 35%, #b91c1c 70%, #991b1b 100%)',
+                           boxShadow: 'inset -1px 0 3px rgba(0,0,0,0.5), inset 1px 0 3px rgba(255,120,120,0.3), 0 3px 6px rgba(239, 68, 68, 0.3)'
+                         }}>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-300/30 to-transparent" />
+                      <div className="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-red-300/50 to-transparent" />
+                      <div className="absolute top-0 left-0 right-0 h-px bg-red-200/20" />
+                    </div>
+                  </div>
+                )
+              })}
+              
+              {/* Inner gear body */}
+              <div className="absolute inset-0 rounded-full border-[5px] shadow-xl"
+                   style={{ 
+                     background: 'radial-gradient(circle at 40% 35%, #ef4444 0%, #dc2626 15%, #b91c1c 35%, #991b1b 60%, #7f1d1d 100%)',
+                     borderColor: '#991b1b',
+                     boxShadow: 'inset 0 0 20px rgba(0,0,0,0.6), inset -3px -3px 15px rgba(239, 68, 68, 0.3), inset 3px 3px 15px rgba(0,0,0,0.4), 0 0 30px rgba(239, 68, 68, 0.4)'
+                   }}>
+                <div className="absolute inset-2 rounded-full border border-red-700/50" />
+                <div className="absolute inset-3 rounded-full border border-red-600/30" />
+                <div className="absolute inset-2 rounded-full" style={{ background: 'radial-gradient(circle at 30% 30%, rgba(252, 165, 165, 0.15) 0%, transparent 40%)' }} />
+              </div>
+            </div>
+
+            {/* Core mechanical center with breathing effect */}
+            <div className="absolute inset-40 animate-pulse" style={{ animationDuration: '2s' }}>
+              <div className="relative w-full h-full">
+                {/* Main hub with red metallic finish */}
+                <div className="absolute inset-0 rounded-full border-[4px] shadow-2xl"
+                     style={{
+                       background: 'radial-gradient(circle at 35% 30%, #fca5a5 0%, #f87171 10%, #ef4444 20%, #dc2626 35%, #b91c1c 50%, #991b1b 70%, #7f1d1d 85%, #450a0a 100%)',
+                       borderColor: '#b91c1c',
+                       boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8), inset -4px -4px 20px rgba(252, 165, 165, 0.3), inset 4px 4px 20px rgba(0,0,0,0.5), 0 0 60px rgba(239, 68, 68, 0.6)'
+                     }}>
+                  
+                  {/* Central energy core */}
+                  <div className="absolute inset-3 rounded-full bg-gradient-to-br from-red-400 via-red-500 to-red-700 shadow-2xl shadow-red-500/80">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tl from-red-300/50 to-transparent" />
+                    <div className="absolute inset-1 rounded-full border border-red-400/40" />
+                  </div>
+                  
+                  {/* Bright highlight */}
+                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-white/50 blur-lg" />
+                  
+                  {/* Inner bright core */}
+                  <div className="absolute inset-1/4 rounded-full bg-gradient-to-br from-red-300 via-red-400 to-red-600">
+                    <div className="absolute inset-1/3 rounded-full bg-red-400 blur-sm" />
+                  </div>
+                </div>
+
+                {/* Mechanical hex bolts - dark metallic */}
+                {[0, 90, 180, 270].map((angle) => (
+                  <div
+                    key={`bolt-${angle}`}
+                    className="absolute top-1/2 left-1/2"
+                    style={{
+                      transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-26px)`
+                    }}
+                  >
+                    {/* Hex bolt head */}
+                    <div className="relative w-3 h-3 shadow-lg"
+                         style={{ 
+                           clipPath: 'polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%)',
+                           background: 'linear-gradient(135deg, #52525b 0%, #3f3f46 30%, #27272a 70%, #18181b 100%)',
+                           boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.2), inset 0 -1px 2px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.6), 0 0 0 1px rgba(127, 29, 29, 0.3)'
+                         }}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-zinc-400/20 to-transparent" />
+                    </div>
+                    {/* Bolt center indent */}
+                    <div className="absolute top-1/2 left-1/2 w-1 h-1 -mt-0.5 -ml-0.5 rounded-full bg-zinc-950 border border-zinc-800" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Massive breathing glow halos */}
+            <div className="absolute inset-20 rounded-full bg-red-500/40 blur-3xl animate-pulse" style={{ animationDuration: '2s', transform: 'scale(1)' }} />
+            <div className="absolute inset-16 rounded-full bg-red-600/20 blur-2xl animate-pulse" style={{ animationDuration: '2.3s', animationDelay: '0.3s', transform: 'scale(1)' }} />
+            <div className="absolute inset-12 rounded-full bg-red-500/10 blur-3xl animate-pulse" style={{ animationDuration: '2.6s', animationDelay: '0.6s', transform: 'scale(1)' }} />
+            
+            {/* Energy burst particles - outer */}
+            <div className="absolute inset-0 animate-spin" style={{ animationDuration: '5s' }}>
+              {[0, 72, 144, 216, 288].map((angle) => (
+                <div
+                  key={`burst-${angle}`}
+                  className="absolute top-1/2 left-1/2"
+                  style={{
+                    transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(150px)`
+                  }}
+                >
+                  <div className="w-1 h-1 bg-red-400 rounded-full animate-pulse" />
+                </div>
+              ))}
+            </div>
+
+            {/* Technical grid overlay */}
+            <div className="absolute inset-12 opacity-20">
+              <svg className="w-full h-full" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-red-500" strokeDasharray="4 4" />
+                <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-red-500" strokeDasharray="3 3" />
+                <circle cx="50" cy="50" r="25" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-red-500" strokeDasharray="2 2" />
+                <line x1="50" y1="5" x2="50" y2="95" stroke="currentColor" strokeWidth="0.3" className="text-red-500" strokeDasharray="2 2" />
+                <line x1="5" y1="50" x2="95" y2="50" stroke="currentColor" strokeWidth="0.3" className="text-red-500" strokeDasharray="2 2" />
+              </svg>
+            </div>
+          </div>
+        </div>
       </div>
 
       {raceLoading && <F1Loader type={loaderType} />}
