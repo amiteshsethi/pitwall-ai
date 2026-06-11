@@ -15,60 +15,72 @@ PRESEASON_BASELINE = {
 }
 
 # ---------------------------------------------------------------------------
-# Driver skill ratings (2026 baseline, 0–100)
+# Multi-attribute driver model (2026 updated)
+#
+# How each attribute is used:
+#   rtg         → base skill score (20% weight)
+#   race_pace   → blended into session pace score (replaces rtg in pace calc)
+#   experience  → scales momentum — veterans convert points more reliably
+#   race_craft  → amplifies alignment bonus when outperforming expected pos
+#   awareness   → dampens alignment penalty when underperforming
 # ---------------------------------------------------------------------------
-DRIVER_SKILL_2026 = {
-    "HAM": 95, "VER": 95, "NOR": 90, "LEC": 94,
-    "PIA": 86, "RUS": 85, "SAI": 84, "ALO": 83,
-    "ANT": 78, "GAS": 76, "ALB": 75, "HUL": 74,
-    "BEA": 72, "LAW": 71, "OCO": 70, "BOR": 69,
-    "COL": 68, "HAD": 67, "LIN": 66, "STR": 65,
-    "PER": 74, "BOT": 72,
+DRIVER_ATTRIBUTES_2026: dict[str, dict] = {
+    "VER": {"rtg": 95, "experience": 88, "race_craft": 96, "awareness": 82, "race_pace": 97},
+    "NOR": {"rtg": 94, "experience": 83, "race_craft": 93, "awareness": 82, "race_pace": 97},
+    "RUS": {"rtg": 93, "experience": 83, "race_craft": 94, "awareness": 93, "race_pace": 94},
+    "LEC": {"rtg": 92, "experience": 83, "race_craft": 92, "awareness": 91, "race_pace": 93},
+    "HAM": {"rtg": 91, "experience": 98, "race_craft": 93, "awareness": 91, "race_pace": 89},
+    "PIA": {"rtg": 91, "experience": 77, "race_craft": 95, "awareness": 81, "race_pace": 92},
+    "ALO": {"rtg": 90, "experience": 99, "race_craft": 87, "awareness": 85, "race_pace": 91},
+    "SAI": {"rtg": 86, "experience": 88, "race_craft": 88, "awareness": 80, "race_pace": 86},
+    "ALB": {"rtg": 85, "experience": 84, "race_craft": 87, "awareness": 77, "race_pace": 85},
+    "PER": {"rtg": 85, "experience": 92, "race_craft": 83, "awareness": 81, "race_pace": 85},
+    "HUL": {"rtg": 85, "experience": 88, "race_craft": 85, "awareness": 85, "race_pace": 85},
+    "GAS": {"rtg": 84, "experience": 83, "race_craft": 83, "awareness": 78, "race_pace": 85},
+    "BOT": {"rtg": 84, "experience": 89, "race_craft": 75, "awareness": 95, "race_pace": 87},
+    "OCO": {"rtg": 84, "experience": 83, "race_craft": 85, "awareness": 84, "race_pace": 84},
+    "ANT": {"rtg": 83, "experience": 70, "race_craft": 83, "awareness": 75, "race_pace": 85},
+    "HAD": {"rtg": 83, "experience": 71, "race_craft": 81, "awareness": 82, "race_pace": 85},
+    "BEA": {"rtg": 83, "experience": 72, "race_craft": 88, "awareness": 70, "race_pace": 83},
+    "BOR": {"rtg": 80, "experience": 69, "race_craft": 81, "awareness": 77, "race_pace": 81},
+    "LAW": {"rtg": 79, "experience": 73, "race_craft": 79, "awareness": 71, "race_pace": 81},
+    "STR": {"rtg": 77, "experience": 84, "race_craft": 77, "awareness": 73, "race_pace": 77},
+    "COL": {"rtg": 73, "experience": 69, "race_craft": 71, "awareness": 74, "race_pace": 75},
+    "LIN": {"rtg": 68, "experience": 32, "race_craft": 70, "awareness": 60, "race_pace": 72},
 }
+
+# Backwards-compatible — anything importing DRIVER_SKILL_2026 still works
+DRIVER_SKILL_2026 = {code: attrs["rtg"] for code, attrs in DRIVER_ATTRIBUTES_2026.items()}
+
+
+def _get_attr(driver_code: str, attr: str, fallback: int = 75) -> int:
+    """Safe attribute lookup with fallback for unknown drivers."""
+    return DRIVER_ATTRIBUTES_2026.get(driver_code, {}).get(attr, fallback)
+
 
 # ---------------------------------------------------------------------------
 # Circuit catalogue
-#
-# track_type controls two things:
-#   1. softmax temperature  — lower = more separation between drivers
-#   2. qualifying_multiplier — boosts the Qualifying session weight further
-#      for circuits where pole is almost impossible to overturn (Monaco, Baku)
-#
-# Types:
-#   "street"    — Monaco, Baku, Singapore, Las Vegas, Miami, Jeddah
-#                 Overtaking near-impossible; qualifying position is destiny.
-#                 Temperature 6 (sharp), quali multiplier 1.4×
-#   "power"     — Monza, Spa, Silverstone, COTA, Interlagos
-#                 Straights matter; engine+car dominates.
-#                 Temperature 9 (moderate), quali multiplier 1.0×
-#   "technical" — Hungary, Zandvoort, Suzuka, Bahrain
-#                 Driver skill and setup matter most.
-#                 Temperature 8 (default), quali multiplier 1.1×
-#   "balanced"  — Everything else. Default.
-#                 Temperature 8, quali multiplier 1.0×
 # ---------------------------------------------------------------------------
 CIRCUIT_TYPES: dict[str, dict] = {
-    # Street circuits
-    "Circuit de Monaco":            {"type": "street",    "temperature": 6,  "quali_multiplier": 1.4},
-    "Baku City Circuit":            {"type": "street",    "temperature": 6,  "quali_multiplier": 1.4},
-    "Marina Bay Street Circuit":    {"type": "street",    "temperature": 6,  "quali_multiplier": 1.4},
-    "Las Vegas Strip Street Circuit": {"type": "street",  "temperature": 6,  "quali_multiplier": 1.4},
-    "Miami International Autodrome": {"type": "street",   "temperature": 7,  "quali_multiplier": 1.2},
-    "Jeddah Corniche Circuit":      {"type": "street",    "temperature": 7,  "quali_multiplier": 1.2},
-
-    # Power circuits
-    "Autodromo Nazionale Monza":    {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
-    "Circuit de Spa-Francorchamps": {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
-    "Silverstone Circuit":          {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
-    "Circuit of the Americas":      {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
-    "Autodromo Jose Carlos Pace":   {"type": "power",     "temperature": 9,  "quali_multiplier": 1.0},
-
-    # Technical circuits
-    "Hungaroring":                  {"type": "technical", "temperature": 8,  "quali_multiplier": 1.1},
-    "Circuit Zandvoort":            {"type": "technical", "temperature": 8,  "quali_multiplier": 1.1},
-    "Suzuka Circuit":               {"type": "technical", "temperature": 8,  "quali_multiplier": 1.1},
-    "Bahrain International Circuit": {"type": "technical","temperature": 8,  "quali_multiplier": 1.1},
-    "Shanghai International Circuit": {"type": "technical","temperature": 8, "quali_multiplier": 1.1},
+    # Street circuits — overtaking near-impossible, qualifying is destiny
+    "Circuit de Monaco":              {"type": "street",    "temperature": 6, "quali_multiplier": 1.4},
+    "Baku City Circuit":              {"type": "street",    "temperature": 6, "quali_multiplier": 1.4},
+    "Marina Bay Street Circuit":      {"type": "street",    "temperature": 6, "quali_multiplier": 1.4},
+    "Las Vegas Strip Street Circuit": {"type": "street",    "temperature": 6, "quali_multiplier": 1.4},
+    "Miami International Autodrome":  {"type": "street",    "temperature": 7, "quali_multiplier": 1.2},
+    "Jeddah Corniche Circuit":        {"type": "street",    "temperature": 7, "quali_multiplier": 1.2},
+    # Power circuits — straights + DRS create real race action
+    "Autodromo Nazionale Monza":      {"type": "power",     "temperature": 9, "quali_multiplier": 1.0},
+    "Circuit de Spa-Francorchamps":   {"type": "power",     "temperature": 9, "quali_multiplier": 1.0},
+    "Silverstone Circuit":            {"type": "power",     "temperature": 9, "quali_multiplier": 1.0},
+    "Circuit of the Americas":        {"type": "power",     "temperature": 9, "quali_multiplier": 1.0},
+    "Autodromo Jose Carlos Pace":     {"type": "power",     "temperature": 9, "quali_multiplier": 1.0},
+    # Technical circuits — driver skill and setup matter most
+    "Hungaroring":                    {"type": "technical", "temperature": 8, "quali_multiplier": 1.1},
+    "Circuit Zandvoort":              {"type": "technical", "temperature": 8, "quali_multiplier": 1.1},
+    "Suzuka Circuit":                 {"type": "technical", "temperature": 8, "quali_multiplier": 1.1},
+    "Bahrain International Circuit":  {"type": "technical", "temperature": 8, "quali_multiplier": 1.1},
+    "Shanghai International Circuit": {"type": "technical", "temperature": 8, "quali_multiplier": 1.1},
 }
 
 DEFAULT_CIRCUIT = {"type": "balanced", "temperature": 8, "quali_multiplier": 1.0}
@@ -77,22 +89,14 @@ DEFAULT_CIRCUIT = {"type": "balanced", "temperature": 8, "quali_multiplier": 1.0
 # Track specialist bonuses
 # ---------------------------------------------------------------------------
 TRACK_SPECIALISTS: dict[str, dict] = {
-    "Shanghai International Circuit": {
-        "HAM": 5, "VER": 4, "LEC": 3
-    },
-    "Circuit de Monaco": {
-        "LEC": 6, "VER": 4, "ALO": 5, "HAM": 3
-    },
-    "Silverstone Circuit": {
-        "HAM": 6, "NOR": 4, "RUS": 3
-    },
-    "Suzuka Circuit": {
-        "VER": 5, "HAM": 4, "ALO": 3
-    },
+    "Shanghai International Circuit": {"HAM": 5, "VER": 4, "LEC": 3},
+    "Circuit de Monaco":              {"LEC": 6, "VER": 4, "ALO": 5, "HAM": 3},
+    "Silverstone Circuit":            {"HAM": 6, "NOR": 4, "RUS": 3},
+    "Suzuka Circuit":                 {"VER": 5, "HAM": 4, "ALO": 3},
 }
 
 # ---------------------------------------------------------------------------
-# Session weights — base values before circuit-type multiplier is applied
+# Session weights — base values before circuit-type multiplier
 # ---------------------------------------------------------------------------
 SESSION_WEIGHTS_BASE = {
     "Practice 1":        0.10,
@@ -110,78 +114,56 @@ WEEKEND_SESSIONS = [
 
 
 def get_circuit_profile(track: str) -> dict:
-    """Return circuit profile, falling back to balanced defaults."""
     return CIRCUIT_TYPES.get(track, DEFAULT_CIRCUIT)
 
 
 def get_session_weights(track: str) -> dict:
     """
-    Return session weights adjusted for circuit type.
-    Street circuits boost Qualifying weight by its multiplier,
-    redistributing the difference proportionally from practice sessions.
+    Session weights adjusted for circuit type.
+    Street circuits boost Qualifying weight, redistributing from practice.
     """
     profile = get_circuit_profile(track)
     multiplier = profile["quali_multiplier"]
-
     weights = dict(SESSION_WEIGHTS_BASE)
 
     if multiplier != 1.0:
         base_quali = weights["Qualifying"]
-        new_quali = min(base_quali * multiplier, 0.65)  # cap at 65%
+        new_quali = min(base_quali * multiplier, 0.65)
         delta = new_quali - base_quali
-
-        # Redistribute delta away from practice sessions proportionally
         practice_sessions = ["Practice 1", "Practice 2", "Practice 3"]
         practice_total = sum(weights[s] for s in practice_sessions)
         for s in practice_sessions:
-            reduction = delta * (weights[s] / practice_total)
-            weights[s] = max(weights[s] - reduction, 0.02)
-
+            weights[s] = max(weights[s] - delta * (weights[s] / practice_total), 0.02)
         weights["Qualifying"] = new_quali
 
     return weights
 
 
 # ---------------------------------------------------------------------------
-# Probability conversion
+# Probability conversion — circuit-aware softmax
 # ---------------------------------------------------------------------------
-
 def scores_to_probabilities(scores: dict, track: str) -> dict:
     """
-    Convert raw scores to win probabilities using softmax.
-
-    Temperature is circuit-aware:
-    - Street circuits (Monaco, Baku): temperature=6 → sharper separation
-      because overtaking is nearly impossible, qualifying position dominates
-    - Power circuits (Monza, Spa): temperature=9 → flatter distribution
-      because DRS + slipstream creates real race action
-    - Technical/balanced: temperature=8 → default
-
-    Lower temperature = more winner-takes-all. Higher = more even spread.
+    Softmax with circuit-aware temperature.
+    Street (temp=6): sharp separation — pole sitter dominates probability.
+    Power (temp=9): flatter — DRS/slipstream keeps it open.
     """
     temperature = get_circuit_profile(track)["temperature"]
-
     exp_scores = {d: math.exp(s / temperature) for d, s in scores.items()}
     total = sum(exp_scores.values())
-    return {
-        driver: round((exp_val / total) * 100, 1)
-        for driver, exp_val in exp_scores.items()
-    }
+    return {d: round((v / total) * 100, 1) for d, v in exp_scores.items()}
 
 
 # ---------------------------------------------------------------------------
 # Dynamic car performance
 # ---------------------------------------------------------------------------
-
 def get_dynamic_car_performance(year: int = 2026) -> dict:
     standings = get_constructor_standings(year)
-
     if not standings:
         print("[WARNING] Could not fetch constructor standings - using baseline")
         return PRESEASON_BASELINE
 
     points_list = [t["points"] for t in standings if t["points"] > 0]
-
     if not points_list:
         print("[WARNING] All teams have 0 points - using pre-season baseline")
         return PRESEASON_BASELINE
@@ -205,29 +187,32 @@ def get_dynamic_car_performance(year: int = 2026) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Pace scoring
+# Pace scoring — uses race_pace attribute, not overall rtg
 # ---------------------------------------------------------------------------
-
 def get_pace_score(driver_code: str, pace_rankings: list) -> float:
+    """
+    Blends session position with race_pace attribute.
+    NOR/VER (race_pace=97) correctly outscore HAM (race_pace=89) on pace
+    even though overall RTG gap is smaller.
+    """
     total = len(pace_rankings)
     if total == 0:
-        return DRIVER_SKILL_2026.get(driver_code, 65)
+        return _get_attr(driver_code, "race_pace")
 
     for driver in pace_rankings:
         if driver["driver_code"] == driver_code:
             position = driver["position"]
             pace_position_score = 100 - ((position - 1) / total) * 50
-            skill = DRIVER_SKILL_2026.get(driver_code, 65)
-            blended = (pace_position_score * 0.60) + (skill * 0.40)
+            race_pace = _get_attr(driver_code, "race_pace")
+            blended = (pace_position_score * 0.60) + (race_pace * 0.40)
             return round(blended, 2)
 
-    return DRIVER_SKILL_2026.get(driver_code, 65)
+    return _get_attr(driver_code, "race_pace")
 
 
 # ---------------------------------------------------------------------------
-# Baseline (no session data)
+# Baseline prediction (no session data)
 # ---------------------------------------------------------------------------
-
 def generate_race_predictions(track: str, year: int = 2026) -> dict:
     standings = get_driver_standings(year)
     car_performance = get_dynamic_car_performance(year)
@@ -239,8 +224,9 @@ def generate_race_predictions(track: str, year: int = 2026) -> dict:
         points = driver["points"]
 
         car_score      = car_performance.get(team, CAR_SCORE_MIN) * 0.25
-        skill_score    = DRIVER_SKILL_2026.get(code, 65) * 0.20
-        momentum_score = min((points / 25) * 100, 100) * 0.10
+        skill_score    = _get_attr(code, "rtg") * 0.20
+        exp_factor     = _get_attr(code, "experience") / 100
+        momentum_score = min((points / 25) * 100, 100) * 0.10 * (0.5 + 0.5 * exp_factor)
         track_bonus    = TRACK_SPECIALISTS.get(track, {}).get(code, 0) * 0.10
 
         raw_scores[code] = {
@@ -266,10 +252,9 @@ def generate_race_predictions(track: str, year: int = 2026) -> dict:
 
     predictions.sort(key=lambda x: x["win_probability"], reverse=True)
 
-    circuit_profile = get_circuit_profile(track)
     return {
         "track": track,
-        "circuit_type": circuit_profile["type"],
+        "circuit_type": get_circuit_profile(track)["type"],
         "session_used": "baseline only",
         "year": year,
         "predictions": predictions
@@ -279,11 +264,10 @@ def generate_race_predictions(track: str, year: int = 2026) -> dict:
 # ---------------------------------------------------------------------------
 # Multi-session pace combiner
 # ---------------------------------------------------------------------------
-
 def combine_session_pace_scores(driver_code: str, available_sessions: list, track: str) -> float:
     """
-    Combine pace scores across all available sessions using circuit-aware
-    session weights. Qualifying gets a bigger boost on street circuits.
+    Weighted average of pace scores across all available sessions.
+    Uses circuit-aware weights so Qualifying counts more at Monaco/Baku.
     """
     session_weights = get_session_weights(track)
     total_weight = 0
@@ -296,7 +280,7 @@ def combine_session_pace_scores(driver_code: str, available_sessions: list, trac
         total_weight += weight
 
     if total_weight == 0:
-        return DRIVER_SKILL_2026.get(driver_code, 65)
+        return _get_attr(driver_code, "race_pace")
 
     return round(weighted_score / total_weight, 2)
 
@@ -309,11 +293,9 @@ def get_all_available_sessions(location: str) -> list:
 
     try:
         response = requests.get(
-            f"https://api.openf1.org/v1/sessions?year=2026",
+            "https://api.openf1.org/v1/sessions?year=2026",
             timeout=10
         )
-        # 401 = live session in progress, OpenF1 restricts access without paid key.
-        # Return empty so the caller falls back to cache or baseline — don't crash.
         if response.status_code == 401:
             print("[INFO] OpenF1 restricted during live session — returning empty sessions")
             return available
@@ -351,25 +333,22 @@ def get_all_available_sessions(location: str) -> list:
 # ---------------------------------------------------------------------------
 # Master prediction function
 # ---------------------------------------------------------------------------
-
 def generate_weekend_predictions(track: str, location: str, year: int = 2026) -> dict:
     """
-    Master prediction function.
-
-    Automatically pulls ALL available session data and combines them.
-    Circuit-aware in three ways:
-      1. Qualifying weight is boosted for street/technical circuits
-      2. Softmax temperature sharpens on street circuits (Monaco, Baku)
-         so pole-sitter gets a meaningfully higher probability
-      3. Track specialist bonuses are circuit-specific
+    Master prediction function — multi-attribute driver model.
 
     Factor weights (before circuit adjustment):
-      Car performance          25% — dynamic from constructor standings
-      Driver skill             20% — hardcoded ratings
-      Combined session pace    25% — weighted avg of all sessions
-      Points momentum          10% — from driver standings
-      Track specialist bonus   10% — historical performance
-      Pace vs skill alignment  10% — outperforming expected position
+      Car performance    25%  dynamic from constructor standings
+      Driver skill RTG   20%  updated 2026 multi-attribute ratings
+      Session pace       25%  race_pace weighted blend
+      Points momentum    10%  experience-scaled (veterans convert better)
+      Track specialist   10%  circuit-specific bonuses
+      Alignment bonus    10%  race_craft/awareness weighted
+
+    Circuit awareness:
+      - Qualifying weight boosted for street circuits (Monaco 63%, Baku 63%)
+      - Softmax temperature lowers at street circuits → sharper separation
+      - Track specialists applied per circuit
     """
     standings = get_driver_standings(year)
     car_performance = get_dynamic_car_performance(year)
@@ -378,6 +357,13 @@ def generate_weekend_predictions(track: str, location: str, year: int = 2026) ->
     available_sessions = get_all_available_sessions(location)
     session_available = len(available_sessions) > 0
     sessions_used = [s[0] for s in available_sessions]
+
+    # Pre-sort by RTG once outside the driver loop — used for alignment calc
+    rtg_sorted = sorted(
+        DRIVER_ATTRIBUTES_2026.keys(),
+        key=lambda x: DRIVER_ATTRIBUTES_2026[x]["rtg"],
+        reverse=True
+    )
 
     raw_scores = {}
     for driver in standings:
@@ -388,36 +374,43 @@ def generate_weekend_predictions(track: str, location: str, year: int = 2026) ->
         # 1. Car performance (25%)
         car_score = car_performance.get(team, CAR_SCORE_MIN) * 0.25
 
-        # 2. Driver skill (20%)
-        skill = DRIVER_SKILL_2026.get(code, 65)
-        skill_score = skill * 0.20
+        # 2. Driver skill — RTG (20%)
+        skill_score = _get_attr(code, "rtg") * 0.20
 
-        # 3. Points momentum (10%)
-        momentum_score = min((points / 25) * 100, 100) * 0.10
+        # 3. Points momentum (10%) — experience-scaled
+        # exp_factor 0.5–1.0: rookies get half momentum credit, veterans full
+        exp_factor = _get_attr(code, "experience") / 100
+        momentum_score = min((points / 25) * 100, 100) * 0.10 * (0.5 + 0.5 * exp_factor)
 
         # 4. Track specialist bonus (10%)
         track_bonus = TRACK_SPECIALISTS.get(track, {}).get(code, 0) * 0.10
 
         if session_available:
-            # 5. Combined session pace (25%) — circuit-aware weights
+            # 5. Combined session pace (25%) — race_pace weighted
             combined_pace = combine_session_pace_scores(
                 code, available_sessions, track
             ) * 0.25
 
             # 6. Pace vs skill alignment bonus (10%)
+            # Uses latest session for the position check
             latest_rankings = available_sessions[-1][1]
             raw_pace_position = next(
                 (d["position"] for d in latest_rankings if d["driver_code"] == code),
                 None
             )
-            if raw_pace_position and code in DRIVER_SKILL_2026:
-                expected_position = sorted(
-                    DRIVER_SKILL_2026.keys(),
-                    key=lambda x: DRIVER_SKILL_2026[x],
-                    reverse=True
-                ).index(code) + 1
-                alignment = max(0, expected_position - raw_pace_position)
-                alignment_score = min(alignment * 2, 20) * 0.10
+
+            if raw_pace_position and code in DRIVER_ATTRIBUTES_2026:
+                expected_position = rtg_sorted.index(code) + 1 if code in rtg_sorted else 11
+                positions_gained = expected_position - raw_pace_position
+
+                if positions_gained > 0:
+                    # Outperforming expected position: race_craft amplifies bonus
+                    craft_factor = _get_attr(code, "race_craft") / 100
+                    alignment_score = min(positions_gained * 2, 20) * 0.10 * craft_factor
+                else:
+                    # Underperforming: awareness dampens the penalty
+                    awareness_factor = _get_attr(code, "awareness") / 100
+                    alignment_score = max(positions_gained * 2, -10) * 0.10 * (1 - awareness_factor * 0.5)
             else:
                 alignment_score = 0
 
@@ -434,8 +427,6 @@ def generate_weekend_predictions(track: str, location: str, year: int = 2026) ->
         }
 
     score_values = {d: v["score"] for d, v in raw_scores.items()}
-
-    # Circuit-aware softmax: sharper separation at Monaco/Baku
     win_probs = scores_to_probabilities(score_values, track)
 
     predictions = []
