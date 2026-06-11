@@ -14,6 +14,9 @@ import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
 import { supabase } from "../lib/supabase";
 
+import * as Linking from 'expo-linking'
+import Constants from 'expo-constants'
+
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
@@ -56,70 +59,71 @@ export default function LoginScreen() {
     }
   };
 
-const handleGoogleAuth = async () => {
-  setGoogleLoading(true)
-  setError(null)
-  try {
-    // For Expo Go: don't specify scheme, let it auto-detect
-    // For dev build: will use the 'pitwall' scheme from app.json
-    const redirectUri = makeRedirectUri({ 
-      path: "auth/callback"
-    })
+  const handleGoogleAuth = async () => {
+    setGoogleLoading(true)
+    setError(null)
+    try {
+      // For Expo Go: don't specify scheme, let it auto-detect
+      // For dev build: will use the 'pitwall' scheme from app.json
+      const redirectUri = makeRedirectUri({
+        path: "auth/callback"
+      })
 
-    console.log("🔗 Redirect URI:", redirectUri)
+      console.log("🔗 Redirect URI:", redirectUri)
 
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: redirectUri,
-        skipBrowserRedirect: true,
-      },
-    })
+      const redirectTo = Constants.appOwnership === 'expo'
+        ? Linking.createURL('auth/callback')
+        : 'pitwall://auth/callback'
 
-    if (error) throw error
-    if (!data.url) throw new Error("No auth URL returned")
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo }
+      })
 
-    const result = await WebBrowser.openAuthSessionAsync(
-      data.url, 
-      redirectUri  // this tells the browser what URL to watch for
-    )
+      if (error) throw error
+      if (!data.url) throw new Error("No auth URL returned")
 
-    console.log("🌐 Browser result:", result)
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectUri  // this tells the browser what URL to watch for
+      )
 
-    if (result.type === "success" && result.url) {
-      const url = new URL(result.url)
-      
-      // Check hash fragment first (Supabase uses this)
-      const hashParams = new URLSearchParams(url.hash.replace("#", ""))
-      const accessToken = hashParams.get("access_token")
-      const refreshToken = hashParams.get("refresh_token")
+      console.log("🌐 Browser result:", result)
 
-      if (accessToken && refreshToken) {
-        await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        })
-        router.replace("/(tabs)")
-        return
+      if (result.type === "success" && result.url) {
+        const url = new URL(result.url)
+
+        // Check hash fragment first (Supabase uses this)
+        const hashParams = new URLSearchParams(url.hash.replace("#", ""))
+        const accessToken = hashParams.get("access_token")
+        const refreshToken = hashParams.get("refresh_token")
+
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          router.replace("/(tabs)")
+          return
+        }
+
+        // Fallback to query params
+        const queryAccess = url.searchParams.get("access_token")
+        const queryRefresh = url.searchParams.get("refresh_token")
+        if (queryAccess && queryRefresh) {
+          await supabase.auth.setSession({
+            access_token: queryAccess,
+            refresh_token: queryRefresh,
+          })
+          router.replace("/(tabs)")
+        }
       }
-
-      // Fallback to query params
-      const queryAccess = url.searchParams.get("access_token")
-      const queryRefresh = url.searchParams.get("refresh_token")
-      if (queryAccess && queryRefresh) {
-        await supabase.auth.setSession({
-          access_token: queryAccess,
-          refresh_token: queryRefresh,
-        })
-        router.replace("/(tabs)")
-      }
+    } catch (err: any) {
+      setError(err.message || "Google sign in failed")
+    } finally {
+      setGoogleLoading(false)
     }
-  } catch (err: any) {
-    setError(err.message || "Google sign in failed")
-  } finally {
-    setGoogleLoading(false)
   }
-}
 
   return (
     <KeyboardAvoidingView
