@@ -566,3 +566,47 @@ def scored_rounds(year: int = 2026):
     except Exception as e:
         print(f"[ERROR] Failed to fetch scored rounds: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch scored rounds")
+
+@app.get("/predictions/auto-save")
+def auto_save_prediction(year: int = 2026):
+    """
+    Self-contained prediction saver — looks up the upcoming race internally
+    so cron-job.org can hit a fixed URL with no changing parameters.
+    """
+    try:
+        upcoming = get_upcoming_race()
+        if not upcoming:
+            return {"success": False, "reason": "No upcoming race found"}
+
+        track = upcoming.get("circuit")
+        location = upcoming.get("location")
+        round_num = int(upcoming.get("round", 0))
+
+        if not track or not location:
+            return {"success": False, "reason": "Missing track or location"}
+
+        result = generate_weekend_predictions(track, location, year)
+
+        if result and result.get("predictions"):
+            save_prediction(
+                race_name=upcoming["name"],
+                track=track,
+                location=location,
+                year=year,
+                round=round_num,
+                sessions_used=result["sessions_used"],
+                predictions=result["predictions"]
+            )
+            return {
+                "success": True,
+                "race": upcoming["name"],
+                "round": round_num,
+                "sessions_used": result["sessions_used"],
+                "session_count": result["session_count"]
+            }
+
+        return {"success": False, "reason": "No predictions generated"}
+
+    except Exception as e:
+        print(f"[ERROR] auto_save_prediction failed: {e}")
+        return {"success": False, "reason": str(e)}
