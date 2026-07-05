@@ -1,0 +1,86 @@
+services:
+  - type: web
+    name: pitwall-ai-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.routes:app --host 0.0.0.0 --port $PORT
+
+  # ─── PREDICTION SAVER ────────────────────────────────────────────────────
+  # Runs every 2 hours Thu/Fri/Sat (UTC) — covers FP1 through Qualifying.
+  # Fetches the upcoming race from Jolpica, then hits /predictions which
+  # auto-pulls any available OpenF1 sessions and saves to Supabase.
+  # If OpenF1 has no session data yet, saves a baseline — still useful for
+  # /comparison fallback and means we always have SOMETHING saved pre-race.
+  - type: cron
+    name: pitwall-save-predictions
+    env: python
+    buildCommand: pip install requests
+    schedule: "0 */2 * * 4,5,6"
+    startCommand: |
+      python3 -c "
+      import requests, os, sys
+      api = os.environ.get('API_BASE_URL', 'http://localhost:8000')
+      try:
+          race = requests.get(f'{api}/upcoming-race', timeout=15).json()
+          track = race.get('circuit')
+          location = race.get('location')
+          if not track or not location:
+              print('[SKIP] No upcoming race found')
+              sys.exit(0)
+          r = requests.get(f'{api}/predictions', params={'track': track, 'location': location, 'year': 2026}, timeout=30)
+          data = r.json()
+          sessions = data.get('sessions_used', [])
+          print(f'[OK] Saved prediction for {track} | sessions: {sessions or [\"baseline\"]}')
+      except Exception as e:
+          print(f'[ERROR] {e}')
+          sys.exit(1)
+      "
+
+  # ─── AUTO SCORER ─────────────────────────────────────────────────────────
+  # Runs every hour Sun/Mon (UTC) — race day and results indexing day.
+  # Hits /scores/auto-score which:
+  #   1. Fetches all completed rounds from Jolpica
+  #   2. Checks which have user picks but no scores yet
+  #   3. Scores only those rounds (idempotent — safe to run repeatedly)
+  # Jolpica typically indexes within 2hrs of race finish, so hourly polling
+  # on Sunday catches it automatically. Monday run is the safety net.
+  - type: cron
+    name: pitwall-auto-score
+    env: python
+    buildCommand: pip install requests
+    schedule: "0 * * * 0,1"
+    startCommand: |
+      python3 -c "
+      import requests, os, sys
+      api = os.environ.get('API_BASE_URL', 'http://localhost:8000')
+      try:
+          r = requests.get(f'{api}/scores/auto-score', params={'year': 2026}, timeout=30)
+          data = r.json()
+          triggered = data.get('triggered', 0)
+          found = data.get('completed_races_found', 0)
+          print(f'[OK] auto-score: {triggered} rounds scored | {found} completed races found')
+          if data.get('details'):
+              for d in data['details']:
+                  print(f'  Round {d[\"round\"]}: {d.get(\"race\", \"?\")} — scored {d.get(\"scored\", 0)} users')
+      except Exception as e:
+          print(f'[ERROR] {e}')
+          sys.exit(1)
+      "
+
+  # ─── KEEP-ALIVE ──────────────────────────────────────────────────────────
+  # Pings the backend every 10 minutes to prevent Render free-tier cold starts.
+  - type: cron
+    name: pitwall-keepalive
+    env: python
+    buildCommand: pip install requests
+    schedule: "*/10 * * * *"
+    startCommand: |
+      python3 -c "
+      import requests, os
+      api = os.environ.get('API_BASE_URL', 'http://localhost:8000')
+      try:
+          requests.get(f'{api}/', timeout=10)
+          print('[OK] ping')
+      except Exception as e:
+          print(f'[WARN] {e}')
+      "
