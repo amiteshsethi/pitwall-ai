@@ -16,10 +16,6 @@ SCORING = {
 
 
 def score_user_picks(picks: dict, result: dict) -> dict:
-    """
-    Score a user's picks against the actual race result.
-    Returns breakdown and total points.
-    """
     top3 = result.get("top10", [])[:3]
     if not top3:
         return {}
@@ -42,7 +38,7 @@ def score_user_picks(picks: dict, result: dict) -> dict:
     constructor_points = 0
     breakdown = []
 
-    # P1 scoring
+    # P1
     if user_p1 == actual_p1:
         driver_points += SCORING["exact_p1"]
         breakdown.append({"pick": user_p1, "position": 1, "result": "correct", "points": SCORING["exact_p1"], "reason": "Exact P1"})
@@ -51,12 +47,11 @@ def score_user_picks(picks: dict, result: dict) -> dict:
         breakdown.append({"pick": user_p1, "position": 1, "result": "podium", "points": SCORING["any_podium_wrong_pos"], "reason": "On podium, wrong position"})
     else:
         breakdown.append({"pick": user_p1, "position": 1, "result": "wrong", "points": 0, "reason": "Not on podium"})
-
     if DRIVER_TEAM_MAP.get(user_p1) == actual_p1_team:
         constructor_points += SCORING["constructor_p1"]
         breakdown.append({"pick": user_p1, "position": 1, "result": "constructor_correct", "points": SCORING["constructor_p1"], "reason": "Correct constructor P1"})
 
-    # P2 scoring
+    # P2
     if user_p2 == actual_p2:
         driver_points += SCORING["exact_p2"]
         breakdown.append({"pick": user_p2, "position": 2, "result": "correct", "points": SCORING["exact_p2"], "reason": "Exact P2"})
@@ -65,12 +60,11 @@ def score_user_picks(picks: dict, result: dict) -> dict:
         breakdown.append({"pick": user_p2, "position": 2, "result": "podium", "points": SCORING["any_podium_wrong_pos"], "reason": "On podium, wrong position"})
     else:
         breakdown.append({"pick": user_p2, "position": 2, "result": "wrong", "points": 0, "reason": "Not on podium"})
-
     if DRIVER_TEAM_MAP.get(user_p2) == actual_p2_team:
         constructor_points += SCORING["constructor_p2"]
         breakdown.append({"pick": user_p2, "position": 2, "result": "constructor_correct", "points": SCORING["constructor_p2"], "reason": "Correct constructor P2"})
 
-    # P3 scoring
+    # P3
     if user_p3 == actual_p3:
         driver_points += SCORING["exact_p3"]
         breakdown.append({"pick": user_p3, "position": 3, "result": "correct", "points": SCORING["exact_p3"], "reason": "Exact P3"})
@@ -79,17 +73,15 @@ def score_user_picks(picks: dict, result: dict) -> dict:
         breakdown.append({"pick": user_p3, "position": 3, "result": "podium", "points": SCORING["any_podium_wrong_pos"], "reason": "On podium, wrong position"})
     else:
         breakdown.append({"pick": user_p3, "position": 3, "result": "wrong", "points": 0, "reason": "Not on podium"})
-
     if DRIVER_TEAM_MAP.get(user_p3) == actual_p3_team:
         constructor_points += SCORING["constructor_p3"]
         breakdown.append({"pick": user_p3, "position": 3, "result": "constructor_correct", "points": SCORING["constructor_p3"], "reason": "Correct constructor P3"})
 
-    # Rookie scoring
+    # Rookie
     rookie_points = 0
     if user_rookie:
         rookie_top = next(
-            (d["driver_code"] for d in result.get("top10", [])
-             if d["driver_code"] in ROOKIES_2026),
+            (d["driver_code"] for d in result.get("top10", []) if d["driver_code"] in ROOKIES_2026),
             None
         )
         if user_rookie == rookie_top:
@@ -99,7 +91,6 @@ def score_user_picks(picks: dict, result: dict) -> dict:
             breakdown.append({"pick": user_rookie, "position": None, "result": "rookie_wrong", "points": 0, "reason": "Wrong top rookie"})
 
     total = driver_points + constructor_points + rookie_points
-
     return {
         "driver_points": driver_points,
         "constructor_points": constructor_points,
@@ -113,10 +104,7 @@ def score_user_picks(picks: dict, result: dict) -> dict:
 
 
 def calculate_and_save_scores(year: int, round: int) -> dict:
-    """
-    Fetch all user picks for a race round,
-    score them and save to user_scores table.
-    """
+    """Score all user picks for a given round and save to user_scores."""
     supabase = get_supabase()
     result = get_race_result_by_round(year, round)
 
@@ -178,56 +166,80 @@ def calculate_and_save_scores(year: int, round: int) -> dict:
 
 def auto_score_missing_rounds(year: int) -> dict:
     """
-    Self-healing scorer: checks all completed race rounds against
-    what's already scored in the DB and fills any gaps automatically.
+    Self-healing scorer. Finds every completed round that has user picks
+    but no scores yet, and scores them automatically.
 
-    Called by GET /scores/auto-score to avoid manual curl ops.
-    Safe to call repeatedly — skips already-scored rounds.
+    Fully idempotent — safe to call on every page load or cron tick.
+    Handles Jolpica downtime gracefully: if a round's results aren't
+    indexed yet, it logs a skip reason and moves on rather than crashing.
+
+    Retry logic: Jolpica sometimes returns empty results for a round
+    that has actually finished (indexing lag). The cron fires hourly
+    on Sunday + Monday so it self-corrects without any manual intervention.
     """
     from data.f1_fetcher import get_all_completed_rounds
 
     supabase = get_supabase()
+
+    # 1. All rounds Jolpica has results for
     completed = get_all_completed_rounds(year)
-
     if not completed:
-        return {"triggered": 0, "message": "No completed races found from Jolpica"}
+        return {
+            "triggered": 0,
+            "message": "No completed races found from Jolpica — may be temporarily down",
+            "completed_races_found": 0,
+        }
 
-    # Get all rounds already present in user_scores
+    completed_round_nums = {r["round"] for r in completed}
+
+    # 2. Rounds that already have scores in our DB
     existing_scored = supabase.table("user_scores") \
         .select("round") \
         .eq("year", year) \
         .execute()
+    already_scored = {row["round"] for row in (existing_scored.data or [])}
 
-    already_scored_rounds = {row["round"] for row in (existing_scored.data or [])}
-
-    # Also check which rounds have user_picks to score
+    # 3. Rounds that have user picks (we only score rounds someone played)
     picks_result = supabase.table("user_picks") \
         .select("round") \
         .eq("year", year) \
         .execute()
-
     rounds_with_picks = {row["round"] for row in (picks_result.data or [])}
+
+    # 4. Rounds to score = have picks + Jolpica has results + not already scored
+    to_score = (rounds_with_picks & completed_round_nums) - already_scored
+
+    if not to_score:
+        print(f"[AUTO-SCORE] Nothing to score for {year} — all caught up")
+        return {
+            "year": year,
+            "triggered": 0,
+            "completed_races_found": len(completed),
+            "rounds_with_picks": len(rounds_with_picks),
+            "already_scored": len(already_scored),
+            "details": [],
+        }
 
     results = []
     triggered = 0
 
-    for race in completed:
-        rnd = race["round"]
-        # Only score rounds that have picks but aren't scored yet
-        if rnd in rounds_with_picks and rnd not in already_scored_rounds:
-            print(f"[AUTO-SCORE] Scoring missing round {rnd}: {race['race_name']}")
-            outcome = calculate_and_save_scores(year, rnd)
-            results.append({"round": rnd, **outcome})
-            if outcome.get("success"):
-                triggered += 1
+    for rnd in sorted(to_score):
+        race_name = next((r["race_name"] for r in completed if r["round"] == rnd), f"Round {rnd}")
+        print(f"[AUTO-SCORE] Scoring round {rnd}: {race_name}")
+        outcome = calculate_and_save_scores(year, rnd)
+        results.append({"round": rnd, "race": race_name, **outcome})
+        if outcome.get("success"):
+            triggered += 1
         else:
-            if rnd in already_scored_rounds:
-                print(f"[AUTO-SCORE] Round {rnd} already scored — skipping")
+            # Not a crash — Jolpica might still be indexing
+            # The cron will retry next hour automatically
+            print(f"[AUTO-SCORE] Round {rnd} not ready: {outcome.get('message')} — will retry")
 
     return {
         "year": year,
         "triggered": triggered,
         "completed_races_found": len(completed),
         "rounds_with_picks": len(rounds_with_picks),
+        "already_scored": len(already_scored),
         "details": results,
     }
