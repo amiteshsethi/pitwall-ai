@@ -10,6 +10,7 @@ import {
   getUserPicks,
   getUserScoreForRound,
 } from "../../api/pitwall"
+import { useWindowDimensions } from "react-native"
 
 function isIndexingGap(upcomingRound?: string, comparisonRound?: number): boolean {
   if (!upcomingRound || !comparisonRound) return false
@@ -69,6 +70,7 @@ export function ProcessingBanner({ raceName }: { raceName: string }) {
 export default function HomeScreen() {
   const { user } = useAuth()
   const router = useRouter()
+  const { width: screenWidth } = useWindowDimensions()
 
   const { data: race, isLoading: raceLoading } = useQuery({
     queryKey: ["upcoming-race"],
@@ -217,12 +219,13 @@ export default function HomeScreen() {
             pointerEvents="none"
             style={{
               position: "absolute",
-              right: -90,
-              top: -70,
+              right: -(screenWidth * 0.22),
+              top: -(screenWidth * 0.17),
               opacity: 0.99,
             }}
           >
-            <AnimatedGlobe size={420} />
+            {/* <AnimatedGlobe size={420} /> */}
+            <AnimatedGlobe size={screenWidth * 1.1} />
           </View>
 
           <View style={{ padding: 7 }}>
