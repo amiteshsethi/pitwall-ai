@@ -15,5 +15,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: ExpoSecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
+    detectSessionInUrl: false, // Required for React Native — prevents URL parsing on boot
+    flowType: 'pkce',          // Code exchange via query param instead of hash tokens
   },
 })

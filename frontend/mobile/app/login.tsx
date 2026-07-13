@@ -14,8 +14,6 @@ import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
 import { supabase } from "../lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
-import * as Linking from 'expo-linking'
-import Constants from 'expo-constants'
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,11 +25,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const redirectUri = makeRedirectUri({
-    scheme: "pitwall",
-    path: "(tabs)",
-  });
 
   const handleEmailAuth = async () => {
     if (!email || !password) {
@@ -63,63 +56,40 @@ export default function LoginScreen() {
     setGoogleLoading(true)
     setError(null)
     try {
-      // For Expo Go: don't specify scheme, let it auto-detect
-      // For dev build: will use the 'pitwall' scheme from app.json
-      const redirectUri = makeRedirectUri({
-        path: "auth/callback"
+      // makeRedirectUri auto-detects environment:
+      // Expo Go      → exp://192.168.x.x:8081/--/auth/callback
+      // Dev/prod build → pitwall://auth/callback
+      const redirectTo = makeRedirectUri({
+        scheme: 'pitwall',
+        path: 'auth/callback',
       })
 
-      console.log("🔗 Redirect URI:", redirectUri)
-
-      const redirectTo = Constants.appOwnership === 'expo'
-        ? Linking.createURL('auth/callback')
-        : 'pitwall://auth/callback'
+      console.log('Redirect URI:', redirectTo)
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo }
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true, // We open the browser manually below
+        },
       })
 
       if (error) throw error
-      if (!data.url) throw new Error("No auth URL returned")
+      if (!data.url) throw new Error('No auth URL returned')
 
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectUri  // this tells the browser what URL to watch for
-      )
+      // Open OAuth URL and watch for our redirect URI to come back
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
 
-      console.log("🌐 Browser result:", result)
+      console.log('Browser result:', result.type)
 
-      if (result.type === "success" && result.url) {
-        const url = new URL(result.url)
-
-        // Check hash fragment first (Supabase uses this)
-        const hashParams = new URLSearchParams(url.hash.replace("#", ""))
-        const accessToken = hashParams.get("access_token")
-        const refreshToken = hashParams.get("refresh_token")
-
-        if (accessToken && refreshToken) {
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          })
-          router.replace("/(tabs)")
-          return
-        }
-
-        // Fallback to query params
-        const queryAccess = url.searchParams.get("access_token")
-        const queryRefresh = url.searchParams.get("refresh_token")
-        if (queryAccess && queryRefresh) {
-          await supabase.auth.setSession({
-            access_token: queryAccess,
-            refresh_token: queryRefresh,
-          })
-          router.replace("/(tabs)")
-        }
+      if (result.type === 'success' && result.url) {
+        // PKCE flow: Supabase returns ?code=xxx in query params — no hash parsing needed
+        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url)
+        if (sessionError) throw sessionError
+        router.replace('/(tabs)')
       }
     } catch (err: any) {
-      setError(err.message || "Google sign in failed")
+      setError(err.message || 'Google sign in failed')
     } finally {
       setGoogleLoading(false)
     }
