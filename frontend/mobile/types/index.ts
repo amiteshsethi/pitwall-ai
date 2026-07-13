@@ -27,6 +27,7 @@ export interface UpcomingRace {
 export interface DriverStanding {
   position: number
   driver_code: string
+  driver: string
   driver_name: string
   team: string
   points: number

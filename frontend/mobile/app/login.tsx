@@ -13,7 +13,7 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { makeRedirectUri } from "expo-auth-session";
 import { supabase } from "../lib/supabase";
-
+import { Ionicons } from "@expo/vector-icons";
 import * as Linking from 'expo-linking'
 import Constants from 'expo-constants'
 
@@ -137,6 +137,14 @@ export default function LoginScreen() {
         <View className="flex-1 px-6 pt-20 pb-10">
           {/* Header */}
           <View className="mb-12">
+            {router.canGoBack?.() && (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                className="w-10 h-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 mb-8"
+              >
+                <Ionicons name="chevron-back" size={24} color="white" />
+              </TouchableOpacity>
+            )}
             <Text className="text-white text-5xl font-black leading-none">
               PITWALL
             </Text>

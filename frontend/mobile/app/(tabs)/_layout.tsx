@@ -50,7 +50,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="race"
         options={{
-          title: "Race",
+          title: "Race Week",
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons
               name="racing-helmet"
