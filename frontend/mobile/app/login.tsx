@@ -80,8 +80,17 @@ export default function LoginScreen() {
       console.log('Browser result:', result.type)
 
       if (result.type === 'success' && result.url) {
-        // PKCE flow: Supabase returns ?code=xxx in query params — no hash parsing needed
-        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url)
+        // Implicit flow: Supabase returns tokens in the URL hash fragment
+        // e.g. pitwall://auth/callback#access_token=XXX&refresh_token=XXX&...
+        const hash = result.url.split('#')[1] ?? ''
+        const params = new URLSearchParams(hash)
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+        if (!accessToken || !refreshToken) throw new Error('No tokens in redirect URL')
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
         if (sessionError) throw sessionError
         router.replace('/(tabs)')
       }

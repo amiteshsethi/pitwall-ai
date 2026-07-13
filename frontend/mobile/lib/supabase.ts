@@ -16,6 +16,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // Required for React Native — prevents URL parsing on boot
-    flowType: 'pkce',          // Code exchange via query param instead of hash tokens
+    flowType: 'implicit',      // Tokens returned in redirect URL hash — avoids PKCE storage issues in Expo Go
   },
 })

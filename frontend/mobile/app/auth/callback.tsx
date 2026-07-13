@@ -10,11 +10,17 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Cold-start / warm-start deep link: pitwall://auth/callback?code=xxx
-      if (url && url.includes('code=')) {
-        const { error } = await supabase.auth.exchangeCodeForSession(url)
-        router.replace(error ? '/login' : '/(tabs)')
-        return
+      // Cold-start / warm-start deep link: pitwall://auth/callback#access_token=XXX&...
+      if (url && url.includes('access_token=')) {
+        const hash = url.split('#')[1] ?? ''
+        const params = new URLSearchParams(hash)
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          router.replace(error ? '/login' : '/(tabs)')
+          return
+        }
       }
 
       // Main flow: session already set by login.tsx after openAuthSessionAsync
