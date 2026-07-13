@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { makeRedirectUri } from "expo-auth-session";
 import { supabase } from "../lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -56,13 +55,11 @@ export default function LoginScreen() {
     setGoogleLoading(true)
     setError(null)
     try {
-      // makeRedirectUri auto-detects environment:
-      // Expo Go      → exp://192.168.x.x:8081/--/auth/callback
-      // Dev/prod build → pitwall://auth/callback
-      const redirectTo = makeRedirectUri({
-        scheme: 'pitwall',
-        path: 'auth/callback',
-      })
+      // Use the custom scheme directly.
+      // On iOS, ASWebAuthenticationSession sets callbackURLScheme internally
+      // and intercepts this redirect without Info.plist registration — works in Expo Go.
+      // This URL must be in Supabase → Authentication → URL Configuration → Redirect URLs.
+      const redirectTo = 'pitwall://auth/callback'
 
       console.log('Redirect URI:', redirectTo)
 
