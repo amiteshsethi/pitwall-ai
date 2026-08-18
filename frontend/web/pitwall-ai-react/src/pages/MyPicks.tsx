@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useAuth } from "../hooks/useAuth";
+import { useEffect, useState } from "react"
+import { useAuth } from "../hooks/useAuth"
 import {
   getWeekendPredictions,
   getUpcomingRace,
@@ -7,15 +7,18 @@ import {
   createUserPicks,
   updateUserPicks,
   getUserPicks,
-} from "../api/pitwall";
-import SessionBadge from "../components/SessionBadge";
-import F1Loader from "../components/F1loader";
-
-import { getUserScores } from "../api/pitwall";
-import RaceScoreCard from "../components/RaceScoreCard";
-import type { RaceScore } from "../types";
-
-import { useQuery } from "@tanstack/react-query";
+  getUserScores,
+} from "../api/pitwall"
+import SessionBadge from "../components/SessionBadge"
+import F1Loader from "../components/F1loader"
+import RaceScoreCard from "../components/RaceScoreCard"
+import type { RaceScore } from "../types"
+import { useQuery } from "@tanstack/react-query"
+import PageHeader from "../components/ui/PageHeader"
+import Section from "../components/ui/Section"
+import ListRow from "../components/ui/ListRow"
+import Button from "../components/ui/Button"
+import { STATUS_COLORS } from "../lib/theme"
 
 const ROOKIES_2026 = [
   { code: "ANT", name: "Andrea Kimi Antonelli", team: "Mercedes" },
@@ -24,252 +27,208 @@ const ROOKIES_2026 = [
   { code: "BOR", name: "Gabriel Bortoleto", team: "Audi" },
   { code: "BEA", name: "Oliver Bearman", team: "Haas F1 Team" },
   { code: "COL", name: "Franco Colapinto", team: "Alpine F1 Team" },
-];
+]
+
+type PickPos = "p1" | "p2" | "p3"
 
 export default function MyPicks() {
-  const { user } = useAuth();
-  const [loaderType] = useState(() => Math.floor(Math.random() * 4) + 1);
-  const [p1Pick, setP1Pick] = useState("");
-  const [p2Pick, setP2Pick] = useState("");
-  const [p3Pick, setP3Pick] = useState("");
-  const [rookiePick, setRookiePick] = useState("");
-  const [existingPick, setExistingPick] = useState<any>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth()
+  const [loaderType] = useState(() => Math.floor(Math.random() * 4) + 1)
+  const [p1Pick, setP1Pick] = useState("")
+  const [p2Pick, setP2Pick] = useState("")
+  const [p3Pick, setP3Pick] = useState("")
+  const [rookiePick, setRookiePick] = useState("")
+  const [existingPick, setExistingPick] = useState<any>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [activePickPos, setActivePickPos] = useState<PickPos | null>(null)
 
   const { data: race, isLoading: raceLoading } = useQuery({
     queryKey: ["upcoming-race"],
     queryFn: getUpcomingRace,
     staleTime: 10 * 60 * 1000,
-  });
+  })
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["user-stats", user?.id],
     queryFn: () => getUserStats(user!.id),
     enabled: !!user,
-  });
+  })
 
   const { data: prediction, isLoading: predictionsLoading } = useQuery({
     queryKey: ["predictions", race?.circuit, race?.location],
     queryFn: () => getWeekendPredictions(race!.circuit, race!.location),
     enabled: !!race,
-  });
+  })
 
   const { data: scores = [] } = useQuery({
     queryKey: ["user-scores", user?.id],
     queryFn: () => getUserScores(user!.id),
     enabled: !!user,
-  });
+  })
 
   const { data: picksData } = useQuery({
-  queryKey: ["user-picks", user?.id, race?.round],
-  queryFn: () => getUserPicks(user!.id, parseInt(race!.round)),
-  enabled: !!user && !!race,
-})
+    queryKey: ["user-picks", user?.id, race?.round],
+    queryFn: () => getUserPicks(user!.id, parseInt(race!.round)),
+    enabled: !!user && !!race,
+  })
 
-useEffect(() => {
-  if (picksData?.exists) {
-    setExistingPick(picksData)
-    setP1Pick(picksData.p1_pick ?? "")
-    setP2Pick(picksData.p2_pick ?? "")
-    setP3Pick(picksData.p3_pick ?? "")
-    setRookiePick(picksData.rookie_pick ?? "")
-  }
-}, [picksData])
+  useEffect(() => {
+    if (picksData?.exists) {
+      setExistingPick(picksData)
+      setP1Pick(picksData.p1_pick ?? "")
+      setP2Pick(picksData.p2_pick ?? "")
+      setP3Pick(picksData.p3_pick ?? "")
+      setRookiePick(picksData.rookie_pick ?? "")
+    }
+  }, [picksData])
 
-const isRaceWeek = race?.date
-  ? new Date() >=
-    new Date(new Date(race.date).getTime() - 7 * 24 * 60 * 60 * 1000)
-  : false
+  const isRaceWeek = race?.date
+    ? new Date() >= new Date(new Date(race.date).getTime() - 7 * 24 * 60 * 60 * 1000)
+    : false
 
   const isLocked =
     existingPick?.is_locked ||
-    (prediction?.sessions_used?.includes("Qualifying") ?? false);
+    (prediction?.sessions_used?.includes("Qualifying") ?? false)
+
+  const getPickValue = (pos: PickPos) =>
+    pos === "p1" ? p1Pick : pos === "p2" ? p2Pick : p3Pick
+
+  const setPickValue = (pos: PickPos, value: string) => {
+    if (pos === "p1") setP1Pick(value)
+    else if (pos === "p2") setP2Pick(value)
+    else setP3Pick(value)
+    setActivePickPos(null)
+  }
+
+  const selectedDrivers = [p1Pick, p2Pick, p3Pick]
 
   const handleSubmit = async () => {
-    if (!user || !race || !p1Pick || !p2Pick || !p3Pick || !rookiePick) return;
+    if (!user || !race || !p1Pick || !p2Pick || !p3Pick || !rookiePick) return
 
     if (p1Pick === p2Pick || p1Pick === p3Pick || p2Pick === p3Pick) {
-      setError("Each position must have a different driver");
-      return;
+      setError("Each position must have a different driver")
+      return
     }
 
-    setSubmitting(true);
-    setError(null);
+    setSubmitting(true)
+    setError(null)
 
     const pickData = {
       p1_pick: p1Pick,
       p2_pick: p2Pick,
       p3_pick: p3Pick,
       rookie_pick: rookiePick,
-    };
+    }
 
     try {
       if (existingPick) {
-        await updateUserPicks(user.id, parseInt(race.round), pickData);
+        await updateUserPicks(user.id, parseInt(race.round), pickData)
       } else {
-        await createUserPicks(user.id, parseInt(race.round), pickData);
+        await createUserPicks(user.id, parseInt(race.round), pickData)
       }
 
       setExistingPick((prev: any) => ({
         ...(prev || {}),
         ...pickData,
         is_locked: false,
-      }));
+      }))
 
-      setSubmitted(true);
+      setSubmitted(true)
     } catch (err: any) {
-      setError(err.message || "Failed to submit picks");
+      setError(err.message || "Failed to submit picks")
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
-  };
-  if (raceLoading || statsLoading || predictionsLoading)
-    return <F1Loader type={loaderType} />;
-
-  const drivers = prediction?.predictions ?? [];
-  const top3AI = drivers.slice(0, 3);
-
-  const selectedDrivers = [p1Pick, p2Pick, p3Pick];
-
-  const rookieGradient = {
-    background:
-      "radial-gradient(ellipse at top right, #3d0a0a 0%, #4e1414 60%)",
-  };
+  }
 
   function daysUntil(dateStr: string) {
     return Math.ceil(
       (new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-    );
+    )
   }
 
-  const driverSelect = (
-    value: string,
-    onChange: (v: string) => void,
-    label: string,
-  ) => (
-    <div className="group relative overflow-hidden bg-zinc-900 border border-zinc-800 hover:border-red-500 rounded-xl p-4 transition-all duration-300">
-      <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-      <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-2">
-        {label}
-      </p>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={isLocked}
-        className="w-full bg-transparent text-white font-bold text-lg outline-none cursor-pointer"
-      >
-        <option value="" className="bg-zinc-900">
-          Select Driver
-        </option>
-        {drivers.map((d) => (
-          <option
-            key={d.driver_code}
-            value={d.driver_code}
-            disabled={
-              selectedDrivers.includes(d.driver_code) && d.driver_code !== value
-            }
-            className="bg-zinc-900"
-          >
-            {d.driver_code} — {d.driver_name}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+  if (raceLoading || statsLoading || predictionsLoading)
+    return <F1Loader type={loaderType} />
+
+  const drivers = prediction?.predictions ?? []
+  const top3AI = drivers.slice(0, 3)
 
   return (
     <div className="space-y-6">
-      {/* ── PAGE HEADER ── */}
-      <div className="border-l-4 border-red-500 pl-5">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full tracking-widest uppercase">
-            2026 Season
-          </span>
-          <span className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">
-            Round {race?.round}
-          </span>
-        </div>
-        <h1 className="text-5xl font-black text-white leading-none mb-1">
-          Prediction Centre
-        </h1>
-        <p className="text-zinc-400 text-sm">
-          Your picks, scores & AI predictions
-        </p>
-      </div>
+      <PageHeader
+        eyebrow={`2026 Season · Round ${race?.round ?? "—"}`}
+        title="Prediction"
+        accent="Centre"
+        subtitle="Your picks, scores & AI predictions"
+      />
 
-      {/* ── SEASON STATS / PROFILE ── */}
       {stats && (
         <div
-          className="border border-zinc-800 rounded-2xl p-6 bg-zinc-950"
-          style={ rookieGradient }
+          className="rounded-2xl p-4 sm:p-6"
+          style={{ backgroundColor: "#090909", border: "1px solid #18181b" }}
         >
-          <div className="flex items-start justify-between mb-5">
+          <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center">
-                <span className="text-red-500 font-black text-sm">
+              <div
+                className="w-11 h-11 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "#1c0505", border: "1px solid #7f1d1d" }}
+              >
+                <span className="text-red-500 font-black text-base">
                   {user?.email?.[0].toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="text-white font-black text-lg leading-none">
-                  {user?.email?.split("@")[0]}
-                </p>
-                <p className="text-zinc-500 text-xs mt-1">{stats.tagline}</p>
+                <p className="text-white font-black text-base">{user?.email?.split("@")[0]}</p>
+                <p className="text-zinc-500 text-xs mt-0.5">{stats.tagline}</p>
               </div>
             </div>
             {stats.streak > 0 && (
               <div className="text-right">
-                <p className="text-red-500 font-black text-2xl">
-                  {stats.streak}
-                </p>
-                <p className="text-zinc-500 text-xs">race streak</p>
+                <p className="text-red-500 font-black text-2xl">{stats.streak}</p>
+                <p className="text-zinc-600 text-[10px]">race streak</p>
               </div>
             )}
           </div>
 
-          <div className="mb-1 flex justify-between text-xs text-zinc-500">
+          <div className="flex justify-between mb-1 text-xs text-zinc-600">
             <span>Season points</span>
-            <span className="text-white font-bold">
-              {stats.total_points} pts
-            </span>
+            <span className="text-white font-bold">{stats.total_points} pts</span>
           </div>
-          <div className="w-full bg-zinc-800 rounded-full h-1.5 mb-5">
+          <div
+            className="rounded-sm mb-4 overflow-hidden"
+            style={{ height: 2, backgroundColor: "#27272a" }}
+          >
             <div
-              className="bg-red-500 h-1.5 rounded-full transition-all duration-700"
               style={{
+                height: 2,
                 width: `${Math.min((stats.total_points / 200) * 100, 100)}%`,
+                backgroundColor: "#ef4444",
               }}
             />
           </div>
 
-          <div className="grid grid-cols-4 gap-3 pt-4 border-t border-zinc-800">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 section-divider pt-4">
             {[
-              { label: "Total Points", value: stats.total_points },
-              { label: "Races Entered", value: stats.races_entered },
-              { label: "Avg Per Race", value: stats.avg_points || "—" },
-              {
-                label: "Best Race",
-                value: stats.best_race ? `${stats.best_race_points}pts` : "—",
-              },
+              { label: "Total", value: stats.total_points },
+              { label: "Races", value: stats.races_entered },
+              { label: "Avg", value: stats.avg_points || "—" },
+              { label: "Best", value: stats.best_race ? `${stats.best_race_points}p` : "—" },
             ].map((s) => (
               <div key={s.label} className="text-center">
-                <p className="text-white font-black text-xl">{s.value}</p>
-                <p className="text-zinc-500 text-xs mt-1">{s.label}</p>
+                <p className="text-white font-black text-lg">{s.value}</p>
+                <p className="text-zinc-600 text-[10px] mt-0.5">{s.label}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── NEXT RACE CARD ── */}
       {race && (
-        <div className="border border-zinc-800 rounded-2xl p-5 bg-zinc-950">
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-3">
-            Next race
-          </p>
-          <div className="flex items-center justify-between">
+        <Section>
+          <p className="label-eyebrow mb-3">Next race</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <p className="text-white font-black text-xl">{race.name}</p>
               <p className="text-zinc-500 text-sm mt-1">
@@ -277,70 +236,71 @@ const isRaceWeek = race?.date
               </p>
             </div>
             {race.date && !isRaceWeek && (
-              <div className="text-right">
-                <p className="text-red-500 font-black text-3xl">
-                  {daysUntil(race.date)}
-                </p>
+              <div className="text-left sm:text-right">
+                <p className="text-red-500 font-black text-3xl">{daysUntil(race.date)}</p>
                 <p className="text-zinc-500 text-xs">days away</p>
               </div>
             )}
             {isRaceWeek && (
-              <span className="bg-green-500/10 text-green-400 text-xs font-bold px-3 py-1 rounded-full border border-green-500/20">
+              <span
+                className="inline-flex text-xs font-bold px-3 py-1 rounded-full w-fit"
+                style={{
+                  backgroundColor: STATUS_COLORS.success.bg,
+                  border: `1px solid ${STATUS_COLORS.success.border}`,
+                  color: STATUS_COLORS.success.text,
+                }}
+              >
                 Race Week
               </span>
             )}
           </div>
-        </div>
+        </Section>
       )}
 
-      {/* ── PREDICTION GATE ── */}
       {!isRaceWeek ? (
-        <div className="border border-yellow-500/20 bg-yellow-500/5 rounded-2xl p-5">
-          <p className="text-yellow-400 font-bold text-sm mb-1">
-            Predictions open race week
+        <div
+          className="rounded-2xl p-4"
+          style={{
+            backgroundColor: STATUS_COLORS.warning.bg,
+            border: `1px solid ${STATUS_COLORS.warning.border}`,
+          }}
+        >
+          <p className="font-black text-sm mb-1" style={{ color: STATUS_COLORS.warning.text }}>
+            Picks Open Race Week
           </p>
           <p className="text-zinc-400 text-xs">
-            Picks for the {race?.name} open on the race. Check
-            back then to lock in your prediction.
+            Predictions for {race?.name} open 7 days before race. Check back then.
           </p>
         </div>
       ) : (
         <>
-          {/* ── PICKS LOCKED BANNER ── */}
           {isLocked && (
-            <div className="border border-yellow-500/20 bg-yellow-500/5 rounded-xl p-4">
-              <p className="text-yellow-400 text-sm font-bold">Picks Locked</p>
-              <p className="text-zinc-400 text-xs mt-1">
-                Qualifying has started / ended — your picks are locked in. Check
-                back after the race for your score!
+            <div
+              className="rounded-xl p-4"
+              style={{
+                backgroundColor: STATUS_COLORS.warning.bg,
+                border: `1px solid ${STATUS_COLORS.warning.border}`,
+              }}
+            >
+              <p className="text-sm font-black mb-0.5" style={{ color: STATUS_COLORS.warning.text }}>
+                Picks Locked
+              </p>
+              <p className="text-zinc-400 text-xs">
+                Qualifying done — check back after the race for your score!
               </p>
             </div>
           )}
 
-          {/* ── AI vs USER PREDICTIONS ── */}
-          <div className="border border-zinc-800 rounded-2xl p-6 bg-zinc-950">
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-1">
-                  Make your prediction
-                </p>
-                <p className="text-white font-black text-lg">{race?.name}</p>
-              </div>
-              {isLocked && (
-                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
-                  Locked
-                </span>
-              )}
-            </div>
+          <Section>
+            <p className="label-eyebrow mb-4">AI vs Your Prediction</p>
 
-            <div className="grid grid-cols-2 gap-6 mt-5">
-              {/* AI Prediction */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">
-                    PitWall AI predicts
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <p className="text-zinc-600 text-xs font-semibold uppercase tracking-wider">
+                    PitWall AI Predicts
                   </p>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap">
                     {prediction?.sessions_used.map((s) => (
                       <SessionBadge key={s} session={s} />
                     ))}
@@ -348,165 +308,184 @@ const isRaceWeek = race?.date
                 </div>
                 <div className="space-y-2">
                   {top3AI.map((driver, i) => (
-                    <div
+                    <ListRow
                       key={driver.driver_code}
-                      className="flex items-center gap-3 bg-zinc-900 rounded-xl px-4 py-3"
-                    >
-                      <span className="text-zinc-600 font-black text-sm w-6">
-                        P{i + 1}
-                      </span>
-                      <div className="flex-1">
-                        <p className="text-white font-black tracking-wider text-sm">
-                          {driver.driver_code}
-                        </p>
-                        <p className="text-zinc-500 text-xs">{driver.team}</p>
-                      </div>
-                      <span className="text-red-500 font-bold text-sm">
-                        {driver.win_probability}%
-                      </span>
-                    </div>
+                      position={`P${i + 1}`}
+                      team={driver.team}
+                      title={driver.driver_code}
+                      subtitle={driver.team}
+                      trailing={
+                        <span className="text-red-500 font-bold text-sm">
+                          {driver.win_probability}%
+                        </span>
+                      }
+                    />
                   ))}
                 </div>
-                {prediction?.session_count === 0 && (
-                  <p className="text-zinc-600 text-xs mt-3">
-                    Baseline prediction — updates after each session
-                  </p>
-                )}
               </div>
 
-              {/* User Picks */}
               <div>
-                <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-3">
-                  Your prediction
+                <p className="text-zinc-600 text-xs font-semibold uppercase tracking-wider mb-3">
+                  Your Prediction
                 </p>
                 <div className="space-y-2">
-                  {driverSelect(p1Pick, setP1Pick, "P1 — Race Winner")}
-                  {driverSelect(p2Pick, setP2Pick, "P2 — Second Place")}
-                  {driverSelect(p3Pick, setP3Pick, "P3 — Third Place")}
+                  {(["p1", "p2", "p3"] as PickPos[]).map((pos, i) => {
+                    const value = getPickValue(pos)
+                    const isActive = activePickPos === pos
+                    return (
+                      <div key={pos}>
+                        <button
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => setActivePickPos(isActive ? null : pos)}
+                          className="w-full flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors cursor-pointer disabled:cursor-not-allowed"
+                          style={{
+                            backgroundColor: isActive ? "#1c0505" : "#0d0d0d",
+                            border: `1px solid ${isActive ? "#ef4444" : value ? "#27272a" : "#18181b"}`,
+                          }}
+                        >
+                          <span className="text-zinc-600 font-black text-xs w-5">P{i + 1}</span>
+                          <span
+                            className="flex-1 font-black text-sm tracking-wider"
+                            style={{ color: value ? "#ffffff" : "#52525b" }}
+                          >
+                            {value || "Tap to select"}
+                          </span>
+                          <span style={{ color: isActive ? "#ef4444" : "#52525b" }}>
+                            {isActive ? "▲" : "▼"}
+                          </span>
+                        </button>
+
+                        {isActive && !isLocked && (
+                          <div
+                            className="mt-2 rounded-xl overflow-hidden max-h-48 overflow-y-auto"
+                            style={{ border: "1px solid #27272a" }}
+                          >
+                            {drivers.map((d) => {
+                              const taken =
+                                selectedDrivers.includes(d.driver_code) &&
+                                d.driver_code !== value
+                              return (
+                                <button
+                                  key={d.driver_code}
+                                  type="button"
+                                  disabled={taken}
+                                  onClick={() => setPickValue(pos, d.driver_code)}
+                                  className="w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#18181b]"
+                                  style={{ backgroundColor: "#0d0d0d" }}
+                                >
+                                  <span className="text-white font-bold">{d.driver_code}</span>
+                                  <span className="text-zinc-500 text-xs ml-2">
+                                    {d.driver_name}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>
-          </div>
+          </Section>
 
-          {/* ── ROOKIE SPOTLIGHT ── */}
-          <div className="border border-zinc-800 rounded-2xl p-6 bg-zinc-950">
-            <div className="flex items-start justify-between mb-4">
+          <Section>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
               <div>
-                <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase mb-1">
-                  Rookie Spotlight
-                </p>
-                <h3 className="text-white font-black text-xl">
-                  Top Rookie This Race?
-                </h3>
-                <p className="text-zinc-500 text-xs mt-1">
-                  AI doesn't predict this — it's all you
-                </p>
+                <p className="label-eyebrow mb-1">Rookie Spotlight</p>
+                <h3 className="text-white font-black text-xl">Top Rookie This Race?</h3>
+                <p className="text-zinc-500 text-xs mt-1">AI doesn't predict this — it's all you</p>
               </div>
-              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-900 text-purple-300">
+              <span className="text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider w-fit bg-purple-900 text-purple-300">
                 Human Only
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {ROOKIES_2026.map((rookie) => (
                 <button
                   key={rookie.code}
+                  type="button"
                   onClick={() => !isLocked && setRookiePick(rookie.code)}
                   disabled={isLocked}
-                  style={
-                    rookiePick === rookie.code
-                      ? {
-                          background:
-                            "radial-gradient(ellipse at top right, #3d0a0a 0%, #4e1414 60%)",
-                        }
-                      : undefined
-                  }
-                  className={`p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
-                    rookiePick === rookie.code
-                      ? "border-red-500"
-                      : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"
-                  }`}
+                  className="p-3 rounded-xl border text-left transition-all cursor-pointer disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: rookiePick === rookie.code ? "#1c0505" : "#0d0d0d",
+                    borderColor: rookiePick === rookie.code ? "#ef4444" : "#18181b",
+                  }}
                 >
                   <p className="text-white font-black text-sm">{rookie.code}</p>
-                  <p className="text-zinc-500 text-xs truncate">
-                    {rookie.name}
-                  </p>
+                  <p className="text-zinc-500 text-xs truncate">{rookie.name}</p>
                   <p className="text-zinc-600 text-xs">{rookie.team}</p>
                 </button>
               ))}
             </div>
-          </div>
+          </Section>
 
-          {/* ── ERROR ── */}
           {error && (
-            <div className="border border-red-900 bg-red-950 rounded-xl p-4 text-red-400 text-sm">
+            <div
+              className="rounded-xl p-4 text-sm"
+              style={{
+                backgroundColor: STATUS_COLORS.error.bg,
+                border: `1px solid ${STATUS_COLORS.error.border}`,
+                color: STATUS_COLORS.error.text,
+              }}
+            >
               {error}
             </div>
           )}
 
-          {/* ── SUBMIT / LOCKED STATE ── */}
           {isLocked ? (
             existingPick ? (
-              <div className="border border-green-500/20 bg-green-500/5 rounded-xl p-6 text-center">
-                <p className="text-green-400 font-black text-lg mb-1">
+              <div
+                className="rounded-xl p-6 text-center"
+                style={{
+                  backgroundColor: STATUS_COLORS.success.bg,
+                  border: `1px solid ${STATUS_COLORS.success.border}`,
+                }}
+              >
+                <p className="font-black text-lg mb-1" style={{ color: STATUS_COLORS.success.text }}>
                   Your Picks Are Locked In
                 </p>
-                <p className="text-zinc-400 text-sm mb-4">
-                  Qualifying is done — no more changes allowed
-                </p>
-                <div className="flex justify-center gap-8">
+                <div className="flex flex-wrap justify-center gap-6 sm:gap-8 mt-4">
                   {[
-                    {
-                      label: "P1 Pick",
-                      value: existingPick.p1_pick,
-                      color: "text-white",
-                    },
-                    {
-                      label: "P2 Pick",
-                      value: existingPick.p2_pick,
-                      color: "text-white",
-                    },
-                    {
-                      label: "P3 Pick",
-                      value: existingPick.p3_pick,
-                      color: "text-white",
-                    },
-                    {
-                      label: "Rookie Pick",
-                      value: existingPick.rookie_pick,
-                      color: "text-purple-400",
-                    },
+                    { label: "P1 Pick", value: existingPick.p1_pick },
+                    { label: "P2 Pick", value: existingPick.p2_pick },
+                    { label: "P3 Pick", value: existingPick.p3_pick },
+                    { label: "Rookie Pick", value: existingPick.rookie_pick, purple: true },
                   ].map((p) => (
                     <div key={p.label}>
-                      <p className={`${p.color} font-black text-xl`}>
+                      <p className={`font-black text-xl ${p.purple ? "text-purple-400" : "text-white"}`}>
                         {p.value}
                       </p>
                       <p className="text-zinc-500 text-xs mt-1">{p.label}</p>
                     </div>
                   ))}
                 </div>
-                <p className="text-zinc-600 text-xs mt-4">
-                  Check back after the race to see your score!
-                </p>
               </div>
             ) : (
-              <div className="border border-red-900 bg-red-950 rounded-xl p-6 text-center">
-                <p className="text-red-400 font-black text-lg mb-1">
+              <div
+                className="rounded-xl p-6 text-center"
+                style={{
+                  backgroundColor: STATUS_COLORS.error.bg,
+                  border: `1px solid ${STATUS_COLORS.error.border}`,
+                }}
+              >
+                <p className="font-black text-lg mb-1" style={{ color: STATUS_COLORS.error.text }}>
                   Picks Closed
                 </p>
                 <p className="text-zinc-400 text-sm">
-                  Qualifying has finished — picks are no longer accepted for
-                  this race.
+                  Qualifying has finished — picks are no longer accepted for this race.
                 </p>
               </div>
             )
           ) : (
-            <button
+            <Button
               onClick={handleSubmit}
-              disabled={
-                submitting || !p1Pick || !p2Pick || !p3Pick || !rookiePick
-              }
-              className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-lg py-4 rounded-xl transition-colors cursor-pointer"
+              disabled={submitting || !p1Pick || !p2Pick || !p3Pick || !rookiePick}
+              className="w-full"
             >
               {submitting
                 ? "Submitting..."
@@ -514,35 +493,34 @@ const isRaceWeek = race?.date
                   ? "Picks Saved!"
                   : existingPick
                     ? "Update My Picks"
-                    : p1Pick || p2Pick || p3Pick || rookiePick
-                      ? "Submit My Picks"
-                      : "Make Your Predictions Above"}
-            </button>
+                    : "Submit My Picks"}
+            </Button>
           )}
 
           {submitted && !isLocked && (
-            <div className="border border-green-500/20 bg-green-500/5 rounded-xl p-4 text-center">
-              <p className="text-green-400 font-bold">Picks submitted!</p>
-              <p className="text-zinc-500 text-xs mt-1">
-                Your picks are saved. Come back after the race to see your
-                score!
+            <div
+              className="rounded-xl p-4 text-center"
+              style={{
+                backgroundColor: STATUS_COLORS.success.bg,
+                border: `1px solid ${STATUS_COLORS.success.border}`,
+              }}
+            >
+              <p className="font-bold" style={{ color: STATUS_COLORS.success.text }}>
+                Picks submitted!
               </p>
             </div>
           )}
         </>
       )}
 
-      {/* ── PREVIOUS RACE SCORES ── */}
       {scores.length > 0 && (
-        <div className="space-y-4" >
-          <p className="text-zinc-500 text-xs font-semibold tracking-widest uppercase">
-            Previous races
-          </p>
+        <div className="space-y-4">
+          <p className="label-eyebrow">Previous races</p>
           {scores.map((score: RaceScore) => (
             <RaceScoreCard key={score.id} score={score} />
           ))}
         </div>
       )}
     </div>
-  );
+  )
 }

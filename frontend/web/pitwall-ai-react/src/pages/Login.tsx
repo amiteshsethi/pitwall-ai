@@ -1,66 +1,62 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { supabase } from "../lib/supabase"
+import Button from "../components/ui/Button"
 
 export default function Login() {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const navigate = useNavigate()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isSignUp, setIsSignUp] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
   const handleEmailAuth = async () => {
-    setLoading(true);
-    setError(null);
-    setMessage(null);
+    setLoading(true)
+    setError(null)
+    setMessage(null)
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        setError(error.message);
+      const { error: signUpError } = await supabase.auth.signUp({ email, password })
+      if (signUpError) {
+        setError(signUpError.message)
       } else {
-        setMessage("Check your email for a confirmation link!");
+        setMessage("Check your email for a confirmation link!")
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
-      });
-      if (error) {
-        setError(error.message);
+      })
+      if (signInError) {
+        setError(signInError.message)
       } else {
-        navigate("/");
+        navigate("/")
       }
     }
-    setLoading(false);
-  };
+    setLoading(false)
+  }
 
   const handleGoogleAuth = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: import.meta.env.VITE_SITE_URL || window.location.origin,
       },
-    });
-    if (error) setError(error.message);
-  };
+    })
+    if (oauthError) setError(oauthError.message)
+  }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center">
+    <div className="min-h-[70vh] sm:min-h-[80vh] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8 sm:mb-10">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <span className="text-red-500 font-black text-2xl tracking-widest">
-              PITWALL
-            </span>
-            <span className="text-white font-light text-2xl tracking-widest">
-              AI
-            </span>
+            <span className="text-red-500 font-black text-2xl tracking-widest">PITWALL</span>
+            <span className="text-white font-light text-2xl tracking-widest">AI</span>
           </div>
-          <h1 className="text-3xl font-black text-white mb-2">
+          <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">
             {isSignUp ? "Create Account" : "Welcome Back"}
           </h1>
           <p className="text-zinc-500 text-sm">
@@ -70,12 +66,13 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Card */}
-        <div className="border border-zinc-800 rounded-2xl p-8 bg-zinc-950 space-y-4">
-          {/* Google */}
+        <div
+          className="rounded-2xl p-6 sm:p-8 space-y-4"
+          style={{ backgroundColor: "#090909", border: "1px solid #18181b" }}
+        >
           <button
             onClick={handleGoogleAuth}
-            className="w-full flex items-center justify-center gap-3 border border-zinc-700 hover:border-red-500 text-white text-sm font-semibold px-4 py-3 rounded-xl transition-all duration-300 cursor-pointer"
+            className="w-full flex items-center justify-center gap-3 border border-zinc-700 hover:border-red-500 bg-zinc-950 text-white text-sm font-semibold px-4 py-3 rounded-xl transition-all cursor-pointer"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5">
               <path
@@ -98,69 +95,73 @@ export default function Login() {
             Continue with Google
           </button>
 
-          {/* Divider */}
-          <div className="flex items-center gap-4">
-            <div className="flex-1 h-px bg-zinc-800" />
-            <span className="text-zinc-600 text-xs">or</span>
-            <div className="flex-1 h-px bg-zinc-800" />
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[#27272a]" />
+            <span className="text-zinc-600 text-xs uppercase tracking-widest">or</span>
+            <div className="flex-1 h-px bg-[#27272a]" />
           </div>
 
-          {/* Email */}
-          <div className="space-y-3">
-            <input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-700 focus:border-red-500 text-white text-sm px-4 py-3 rounded-xl outline-none transition-colors"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
-              className="w-full bg-zinc-900 border border-zinc-700 focus:border-red-500 text-white text-sm px-4 py-3 rounded-xl outline-none transition-colors"
-            />
-          </div>
+          <input
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-red-500 transition-colors"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleEmailAuth()}
+            className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-red-500 transition-colors"
+          />
 
-          {/* Error / Message */}
           {error && (
-            <div className="border border-red-900 bg-red-950 rounded-xl p-3 text-red-400 text-xs">
+            <div
+              className="rounded-xl p-3 text-sm"
+              style={{
+                backgroundColor: "#1c0000",
+                border: "1px solid #7f1d1d",
+                color: "#f87171",
+              }}
+            >
               {error}
             </div>
           )}
           {message && (
-            <div className="border border-green-900 bg-green-950 rounded-xl p-3 text-green-400 text-xs">
+            <div
+              className="rounded-xl p-3 text-sm"
+              style={{
+                backgroundColor: "#052e16",
+                border: "1px solid #166534",
+                color: "#4ade80",
+              }}
+            >
               {message}
             </div>
           )}
 
-          {/* Submit */}
-          <button
+          <Button
             onClick={handleEmailAuth}
             disabled={loading || !email || !password}
-            className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors cursor-pointer"
+            className="w-full"
           >
             {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
-          </button>
+          </Button>
 
-          {/* Toggle */}
-          <p className="text-center text-zinc-500 text-xs">
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError(null);
-                setMessage(null);
-              }}
-              className="text-red-500 hover:text-red-400 font-semibold cursor-pointer"
-            >
-              {isSignUp ? "Sign In" : "Sign Up"}
-            </button>
-          </p>
+          <button
+            onClick={() => {
+              setIsSignUp(!isSignUp)
+              setError(null)
+              setMessage(null)
+            }}
+            className="w-full text-zinc-500 hover:text-white text-sm transition-colors cursor-pointer"
+          >
+            {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+          </button>
         </div>
       </div>
     </div>
-  );
+  )
 }

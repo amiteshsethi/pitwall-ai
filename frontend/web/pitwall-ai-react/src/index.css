@@ -1,1 +1,47 @@
 @import "tailwindcss";
+
+html,
+body,
+#root {
+  background-color: #000000;
+  min-height: 100%;
+}
+
+@theme {
+  --color-pitwall-red: #ef4444;
+  --color-pitwall-dark: #000000;
+  --color-pitwall-card: #09090b;
+  --color-surface: #090909;
+  --color-surface-row: #0d0d0d;
+  --color-border-subtle: #18181b;
+  --color-border-divider: #27272a;
+  --color-text-muted: #71717a;
+}
+
+@layer utilities {
+  .label-eyebrow {
+    @apply text-[10px] uppercase tracking-[0.3em] text-zinc-500;
+  }
+
+  .headline-display {
+    @apply font-black text-white text-3xl sm:text-4xl lg:text-[40px] leading-tight;
+  }
+
+  .headline-accent {
+    @apply font-black text-red-500 text-3xl sm:text-4xl lg:text-[40px] leading-tight;
+  }
+
+  .section-divider {
+    border-top: 1px solid #27272a;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

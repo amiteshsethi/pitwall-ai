@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import BackendAlert from "./components/BackendAlert";
+import GlobeBackground from "./components/GlobeBackground";
+import { ENABLE_FULLPAGE_GLOBE } from "./config/features";
 import Home from "./pages/Home";
 import Standings from "./pages/Standings";
 import RaceWeekend from "./pages/Raceweekend";
@@ -24,27 +26,30 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <BackendAlert />
-        <div className="min-h-screen bg-black text-white">
-          <Navbar />
-          <main className="max-w-full mx-auto px-6 py-8">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/race" element={<RaceWeekend />} />
-              <Route path="/standings" element={<Standings />} />
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/picks"
-                element={
-                  <AuthGuard>
-                    <MyPicks />
-                  </AuthGuard>
-                }
-              />
-              <Route path="/leaderboard" element={<Leaderboard />} />
-            </Routes>
-          </main>
-          <Footer />
+        <div className="min-h-screen bg-black text-white relative">
+          {ENABLE_FULLPAGE_GLOBE && <GlobeBackground />}
+          <div className="relative z-10">
+            <BackendAlert />
+            <Navbar />
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/race" element={<RaceWeekend />} />
+                <Route path="/standings" element={<Standings />} />
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/picks"
+                  element={
+                    <AuthGuard>
+                      <MyPicks />
+                    </AuthGuard>
+                  }
+                />
+                <Route path="/leaderboard" element={<Leaderboard />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
         </div>
       </BrowserRouter>
     </QueryClientProvider>
