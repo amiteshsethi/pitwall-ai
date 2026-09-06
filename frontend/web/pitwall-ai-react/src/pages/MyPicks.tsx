@@ -83,9 +83,17 @@ export default function MyPicks() {
     new Date(new Date(race.date).getTime() - 7 * 24 * 60 * 60 * 1000)
     : false
 
-  const isLocked =
-    existingPick?.is_locked ||
-    (prediction?.sessions_used?.includes("Qualifying") ?? false);
+  const hasRaceStarted = race?.date
+    ? (() => {
+        const timeStr = race.time
+          ? (race.time.endsWith("Z") ? race.time : `${race.time}Z`)
+          : "00:00:00Z";
+        const raceDate = new Date(`${race.date}T${timeStr}`);
+        return !isNaN(raceDate.getTime()) && new Date() >= raceDate;
+      })()
+    : false;
+
+  const isLocked = existingPick?.is_locked || hasRaceStarted;
 
   const handleSubmit = async () => {
     if (!user || !race || !p1Pick || !p2Pick || !p3Pick || !rookiePick) return;
@@ -311,8 +319,8 @@ export default function MyPicks() {
             <div className="border border-yellow-500/20 bg-yellow-500/5 rounded-xl p-4">
               <p className="text-yellow-400 text-sm font-bold">Picks Locked</p>
               <p className="text-zinc-400 text-xs mt-1">
-                Qualifying has started / ended — your picks are locked in. Check
-                back after the race for your score!
+                The race has started — your picks are locked in. Check back
+                after the race for your score!
               </p>
             </div>
           )}
@@ -451,7 +459,7 @@ export default function MyPicks() {
                   Your Picks Are Locked In
                 </p>
                 <p className="text-zinc-400 text-sm mb-4">
-                  Qualifying is done — no more changes allowed
+                  Race has started — no more changes allowed
                 </p>
                 <div className="flex justify-center gap-8">
                   {[
@@ -494,7 +502,7 @@ export default function MyPicks() {
                   Picks Closed
                 </p>
                 <p className="text-zinc-400 text-sm">
-                  Qualifying has finished — picks are no longer accepted for
+                  The race has started — picks are no longer accepted for
                   this race.
                 </p>
               </div>

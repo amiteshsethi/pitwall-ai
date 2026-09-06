@@ -99,8 +99,17 @@ export default function PredictionsScreen() {
     ? new Date() >= new Date(new Date(race.date).getTime() - 7 * 24 * 60 * 60 * 1000)
     : false
 
-  const isLocked = existingPick?.is_locked ||
-    (prediction?.sessions_used?.includes("Qualifying") ?? false)
+  const hasRaceStarted = race?.date
+    ? (() => {
+        const timeStr = race.time
+          ? (race.time.endsWith("Z") ? race.time : `${race.time}Z`)
+          : "00:00:00Z"
+        const raceDate = new Date(`${race.date}T${timeStr}`)
+        return !isNaN(raceDate.getTime()) && new Date() >= raceDate
+      })()
+    : false
+
+  const isLocked = existingPick?.is_locked || hasRaceStarted
 
   const drivers = prediction?.predictions ?? []
   const top3AI = drivers.slice(0, 3)
@@ -307,7 +316,7 @@ export default function PredictionsScreen() {
             >
               <Text className="text-yellow-400 text-sm font-black mb-0.5">Picks Locked</Text>
               <Text className="text-zinc-400 text-xs">
-                Qualifying done — check back after the race for your score!
+                Race has started — picks are locked in. Check back after the race for your score!
               </Text>
             </View>
           )}
@@ -528,7 +537,7 @@ export default function PredictionsScreen() {
                 }}
               >
                 <Text className="text-green-400 font-black text-lg mb-1">Picks Locked In</Text>
-                <Text className="text-zinc-400 text-sm mb-5">No more changes</Text>
+                <Text className="text-zinc-400 text-sm mb-5">Race has started — no more changes</Text>
                 <View className="flex-row gap-6">
                   {[
                     { label: "P1", value: existingPick.p1_pick, color: "#ffffff" },
@@ -556,7 +565,7 @@ export default function PredictionsScreen() {
                 }}
               >
                 <Text className="text-red-400 font-black text-lg mb-1">Picks Closed</Text>
-                <Text className="text-zinc-400 text-sm">Qualifying finished</Text>
+                <Text className="text-zinc-400 text-sm">Race has started — picks are no longer accepted</Text>
               </View>
             )
           ) : (

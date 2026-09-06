@@ -281,6 +281,21 @@ def user_stats(user_id: str):
         }
 
 
+def check_race_started(race_data: dict) -> bool:
+    if not race_data or not race_data.get("date"):
+        return False
+    try:
+        from datetime import datetime, timezone
+        time_str = race_data.get("time") or "00:00:00Z"
+        if not time_str.endswith("Z"):
+            time_str += "Z"
+        race_dt = datetime.fromisoformat(f"{race_data['date']}T{time_str}")
+        return datetime.now(timezone.utc) >= race_dt
+    except Exception as e:
+        print(f"[WARN] Failed to parse race start time: {e}")
+        return False
+
+
 @app.get("/user/picks/{user_id}/{round}")
 def get_user_picks(user_id: str, round: int):
     try:
@@ -291,18 +306,22 @@ def get_user_picks(user_id: str, round: int):
             .eq("year", 2026) \
             .eq("round", round) \
             .execute()
+        
+        race = get_upcoming_race()
+        has_started = check_race_started(race) if race and str(race.get("round")) == str(round) else False
+
         if result.data and len(result.data) > 0:
             picks = result.data[0]
             return {
                 "exists": True,
                 "id": picks.get("id"),
-                "is_locked": picks.get("is_locked", False),
+                "is_locked": picks.get("is_locked", False) or has_started,
                 "p1_pick": picks.get("p1_pick"),
                 "p2_pick": picks.get("p2_pick"),
                 "p3_pick": picks.get("p3_pick"),
                 "rookie_pick": picks.get("rookie_pick"),
             }
-        return {"exists": False}
+        return {"exists": False, "is_locked": has_started}
     except Exception as e:
         print(f"[ERROR] Failed to fetch user picks: {e}")
         return {"exists": False, "error": str(e)}
@@ -315,6 +334,8 @@ def create_user_picks(user_id: str, round: int, pick_data: dict):
         race = get_upcoming_race()
         if not race:
             raise HTTPException(status_code=400, detail="No upcoming race found")
+        if check_race_started(race):
+            raise HTTPException(status_code=400, detail="Picks are locked — race has already started")
         result = supabase.table("user_picks").insert({
             "user_id": user_id,
             "race_name": race["name"],
@@ -329,6 +350,8 @@ def create_user_picks(user_id: str, round: int, pick_data: dict):
         if result.data:
             return {"success": True, "id": result.data[0].get("id")}
         raise HTTPException(status_code=500, detail="Failed to create picks")
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[ERROR] Failed to create picks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -338,6 +361,9 @@ def create_user_picks(user_id: str, round: int, pick_data: dict):
 def update_user_picks(user_id: str, round: int, pick_data: dict):
     try:
         supabase = get_supabase()
+        race = get_upcoming_race()
+        if race and check_race_started(race):
+            raise HTTPException(status_code=400, detail="Picks are locked — race has already started")
         existing = supabase.table("user_picks") \
             .select("id") \
             .eq("user_id", user_id) \
@@ -358,6 +384,8 @@ def update_user_picks(user_id: str, round: int, pick_data: dict):
         if result.data:
             return {"success": True}
         raise HTTPException(status_code=500, detail="Failed to update picks")
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[ERROR] Failed to update picks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
