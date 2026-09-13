@@ -83,15 +83,15 @@ export default function MyPicks() {
     new Date(new Date(race.date).getTime() - 7 * 24 * 60 * 60 * 1000)
     : false
 
-  const hasRaceStarted = race?.date
-    ? (() => {
-        const timeStr = race.time
-          ? (race.time.endsWith("Z") ? race.time : `${race.time}Z`)
-          : "00:00:00Z";
-        const raceDate = new Date(`${race.date}T${timeStr}`);
-        return !isNaN(raceDate.getTime()) && new Date() >= raceDate;
-      })()
-    : false;
+  // const hasRaceStarted = race?.date
+  //   ? (() => {
+  //       const timeStr = race.time
+  //         ? (race.time.endsWith("Z") ? race.time : `${race.time}Z`)
+  //         : "00:00:00Z";
+  //       const raceDate = new Date(`${race.date}T${timeStr}`);
+  //       return !isNaN(raceDate.getTime()) && new Date() >= raceDate;
+  //     })()
+  //   : false;
 
   // Lock to stop predictions before race temporarily removed for now
   const isLocked = false;
