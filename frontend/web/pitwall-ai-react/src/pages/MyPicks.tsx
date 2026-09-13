@@ -93,7 +93,8 @@ export default function MyPicks() {
       })()
     : false;
 
-  const isLocked = existingPick?.is_locked || hasRaceStarted;
+  // Lock to stop predictions before race temporarily removed for now
+  const isLocked = false;
 
   const handleSubmit = async () => {
     if (!user || !race || !p1Pick || !p2Pick || !p3Pick || !rookiePick) return;
